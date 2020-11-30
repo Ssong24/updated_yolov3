@@ -99,9 +99,7 @@ def train(hyp):
             pg0 += [v]  # all else
 
     if opt.adam:
-        # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
         optimizer = optim.Adam(pg0, lr=hyp['lr0'])
-        # optimizer = AdaBound(pg0, lr=hyp['lr0'], final_lr=0.1)
     else:
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
@@ -187,6 +185,24 @@ def train(hyp):
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
+    ##################################################################
+    # 2020.11.24.Wed
+    # Song's Edited Code : Display the Model
+    # command: 
+    # print('=== YOLO ({}) Architecture ==='.format(opt.cfg))
+    # for i in model.module_list:
+    #     print(i)
+    # print("YOLO({})'s module_defs...".format(opt.cfg.split('\\')[-1]))
+    # for i, m in enumerate(model.module_defs):
+    #     print('[{}] {}'.format(i, m))
+    # 
+    # print("Print module name of the model")
+    # for i, module in enumerate(model.module_list):
+    #     print("[{}] name: {}".format(i, module.__class__.__name__))
+    # input('STOP')
+    ##################################################################
+
+
     # Dataset
     dataset = LoadImagesAndLabels(train_path, img_size, batch_size,
                                   augment=True,
@@ -226,7 +242,7 @@ def train(hyp):
     model.gr = 1.0  # giou loss ratio (obj_loss = 1.0 or giou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
-    # Model EMA
+    # Model EMA  -- ?
     ema = torch_utils.ModelEMA(model)
 
     # Start training
@@ -379,7 +395,8 @@ def train(hyp):
 
     n = opt.name
     if len(n):
-        n = '_' + n if not n.isnumeric() else n
+        n = n if not n.isnumeric() else n
+        n = '_' + n.split('\\')[-1].split(".")[0]
         fresults, flast, fbest = wdir + 'results%s.txt' % n, wdir + 'last%s.pt' % n, wdir + 'best%s.pt' % n
         for f1, f2 in zip([wdir + 'last.pt', wdir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
             if os.path.exists(f1):
@@ -421,6 +438,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='test', help='result folder')
     parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
     parser.add_argument('--n-classes', type=int, help='number of classes')
+    parser.add_argument('--noBoard', action='store_true', help='No tensoboard.')
     opt = parser.parse_args()
 
     check_git_status()
@@ -452,8 +470,9 @@ if __name__ == '__main__':
 
     tb_writer = None
     if not opt.evolve:  # Train normally
-        print('Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/')
-        tb_writer = SummaryWriter(comment=opt.name)
+        print('Start with "tensorboard --logdir=runs", view at http://localhost:6006/')
+        if not opt.noBoard:
+            tb_writer = SummaryWriter(comment=opt.name)
         train(hyp)  # train normally
 
     else:  # Evolve hyperparameters (optional)

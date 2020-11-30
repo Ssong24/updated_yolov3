@@ -193,7 +193,7 @@ class YOLOLayer(nn.Module):
             if (self.nx, self.ny) != (nx, ny):
                 self.create_grids((nx, ny), p.device)
 
-        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh,score)
         p = p.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
@@ -240,7 +240,7 @@ class Darknet(nn.Module):
 
     def forward(self, x, augment=False, verbose=False):
 
-        if not augment:
+        if not augment:  # augment is intially False 
             return self.forward_once(x)
         else:  # Augment images (inference and test only) https://github.com/ultralytics/yolov3/issues/931
             img_size = x.shape[-2:]  # height, width
@@ -302,7 +302,7 @@ class Darknet(nn.Module):
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
 
-        if self.training:  # train
+        if self.training:  # train            
             return yolo_out
         elif ONNX_EXPORT:  # export
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
