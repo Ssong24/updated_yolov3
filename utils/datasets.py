@@ -25,7 +25,6 @@ for orientation in ExifTags.TAGS.keys():
     if ExifTags.TAGS[orientation] == 'Orientation':
         break
 
-
 def exif_size(img):
     # Returns exif-corrected PIL size
     s = img.size  # (width, height)
@@ -289,14 +288,19 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.mosaic = self.augment and not self.rect  # load 4 images at a time into a mosaic (only during training)
 
         # Define labels
-        if data_format == "cityscape" :
+
+        if data_format == "cityscape":
             self.label_files = [x.replace('\\leftImg8bit', '\\gtFine').replace('leftImg8bit.', 'gtFine_polygons.').replace(os.path.splitext(x)[-1], '.txt')
                             for x in self.img_files]
-        else:  # In this case, kitti --> Please change later...
+        elif data_format =='kitti':
             self.label_files = [
                 x.replace('\\data_object_image_2', '\\data_object_label_2').replace('\\image_2', '\\label_2_yolo_'+ str(n_classes)+ 'c')
                     .replace(os.path.splitext(x)[-1], '.txt')
                 for x in self.img_files]
+        else:
+            print('Wrong dataset. Please check again')
+            exit(-1)
+
 
         # Read image shapes (wh)
         sp = path.replace('.txt', '') + '.shapes'  # shapefile path
