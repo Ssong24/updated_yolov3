@@ -1,4 +1,4 @@
-from utils.google_utils import *
+# from utils.google_utils import *
 from utils.layers import *
 from utils.parse_config import *
 
@@ -7,7 +7,6 @@ ONNX_EXPORT = False
 
 def create_modules(module_defs, img_size, cfg):
     # Constructs module list of layer blocks from module configuration in module_defs
-
     img_size = [img_size] * 2 if isinstance(img_size, int) else img_size  # expand if necessary
     _ = module_defs.pop(0)  # cfg training hyperparams (unused)
     output_filters = [3]  # input channels
@@ -16,8 +15,10 @@ def create_modules(module_defs, img_size, cfg):
     yolo_index = -1
 
     for i, mdef in enumerate(module_defs):
+        # Example of mdef 
+        # {'type': 'convolutional', 'batch_normalize': 1, 'filters': 32, 'size': 3, 
+        # 'stride': 1, 'pad': 1, 'activation': 'leaky'}
         modules = nn.Sequential()
-
         if mdef['type'] == 'convolutional':
             bn = mdef['batch_normalize']
             filters = mdef['filters']
@@ -49,6 +50,20 @@ def create_modules(module_defs, img_size, cfg):
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
                 modules.add_module('activation', Mish())
+        # Add tranposed convolution layer
+        elif mdef['type'] == 'deconvolutional':            
+            filters = mdef['filters']
+            k = mdef['size']
+            stride = mdef['stride'] if 'stride' in mdef else (mdef['stride_y'], mdef['stride_x'])
+            
+            # print('filters={}, k = {}, stride={}, output_filters[-1]={}'.format(filters, k, stride, output_filters[-1]))
+            modules.add_module('ConvTranspose2d', nn.ConvTranspose2d(in_channels=output_filters[-1], 
+                                                            out_channels=filters,
+                                                            kernel_size=k,
+                                                            stride=stride,
+                                                            padding=mdef['pad'] if mdef['pad'] else 0))
+            if bn:
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4))
 
         elif mdef['type'] == 'BatchNorm2d':
             filters = output_filters[-1]
@@ -120,6 +135,8 @@ def create_modules(module_defs, img_size, cfg):
         elif mdef['type'] == 'dropout':
             perc = float(mdef['probability'])
             modules = nn.Dropout(p=perc)
+        
+
         else:
             print('Warning: Unrecognized Layer Type: ' + mdef['type'])
 
@@ -131,7 +148,6 @@ def create_modules(module_defs, img_size, cfg):
     for i in routs:
         routs_binary[i] = True
     return module_list, routs_binary
-
 
 class YOLOLayer(nn.Module):
     def __init__(self, anchors, nc, img_size, yolo_index, layers, stride):
@@ -147,10 +163,20 @@ class YOLOLayer(nn.Module):
         self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y gridpoints
         self.anchor_vec = self.anchors / self.stride
         self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
+        # self.display()
 
         if ONNX_EXPORT:
             self.training = False
             self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
+
+    ## Song Edited code ##
+    def display(self):
+        print("anchors | index | layers | stride | nl | na | nc | no")
+        print("a:{}\ni:{}\nl: {}\ns: {}\nnl: {} na:{} nc: {} no:{} ".format (self.anchors, self.index, self.layers, self.stride, self.nl, self.na, self.nc, self.no))
+        print("(nx, ny, ng) | anchor_vec | anchor_wh | ")
+        print("({}, {}, {}) | a_vec: {} | a_wh: {}".format(self.nx, self.ny, self.ng, self.anchor_vec, self.anchor_wh))
+
+
 
     def create_grids(self, ng=(13, 13), device='cpu'):
         self.nx, self.ny = ng  # x and y grid size
@@ -159,7 +185,69 @@ class YOLOLayer(nn.Module):
         # build xy offsets
         if not self.training:
             yv, xv = torch.meshgrid([torch.arange(self.ny, device=device), torch.arange(self.nx, device=device)])
+            '''
+            yv =  tensor([
+            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+            [ 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1],
+            [ 2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2],
+            [ 3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+            [ 4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4],
+            [ 5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5],
+            [ 6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6],
+            [ 7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7],
+            [ 8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8],
+            [ 9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9],
+            [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+            [11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11],
+            [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]], device='cuda:0')
+            xv = tensor([
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12],
+            [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12]], device='cuda:0')
+            '''
             self.grid = torch.stack((xv, yv), 2).view((1, 1, self.ny, self.nx, 2)).float()
+            '''
+            self.grid.shape = [1,1,13,13,2]
+            self.grid = tensor([ [ [ 
+               [[ 0.,  0.],
+               [ 1.,  0.],
+               [ 2.,  0.],
+               [ 3.,  0.],
+               [ 4.,  0.],
+               [ 5.,  0.],
+               [ 6.,  0.],
+               [ 7.,  0.],
+               [ 8.,  0.],
+               [ 9.,  0.],
+               [10.,  0.],
+               [11.,  0.],
+               [12.,  0.]],
+               
+               [[ 0.,  1.],
+               [ 1.,  1.],
+               [ 2.,  1.],
+               [ 3.,  1.],
+               [ 4.,  1.],
+               [ 5.,  1.],
+               [ 6.,  1.],
+               [ 7.,  1.],
+               [ 8.,  1.],
+               [ 9.,  1.],
+               [10.,  1.],
+               [11.,  1.],
+               [12.,  1.]],
+            
+            '''
 
         if self.anchor_vec.device != device:
             self.anchor_vec = self.anchor_vec.to(device)
@@ -237,11 +325,12 @@ class Darknet(nn.Module):
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = np.array([0], dtype=np.int64)  # (int64) number of images seen during training
         self.info(verbose) if not ONNX_EXPORT else None  # print model description
+        self.verbose = verbose
 
-    def forward(self, x, augment=False, verbose=False):
-
+    def forward(self, x, augment=False):
+        verbose = self.verbose
         if not augment:  # augment is intially False 
-            return self.forward_once(x)
+            return self.forward_once(x, verbose=verbose)
         else:  # Augment images (inference and test only) https://github.com/ultralytics/yolov3/issues/931
             img_size = x.shape[-2:]  # height, width
             s = [0.83, 0.67]  # scales
@@ -256,21 +345,13 @@ class Darknet(nn.Module):
             y[1][..., :4] /= s[0]  # scale
             y[1][..., 0] = img_size[1] - y[1][..., 0]  # flip lr
             y[2][..., :4] /= s[1]  # scale
-
-            # for i, yi in enumerate(y):  # coco small, medium, large = < 32**2 < 96**2 <
-            #     area = yi[..., 2:4].prod(2)[:, :, None]
-            #     if i == 1:
-            #         yi *= (area < 96. ** 2).float()
-            #     elif i == 2:
-            #         yi *= (area > 32. ** 2).float()
-            #     y[i] = yi
-
             y = torch.cat(y, 1)
             return y, None
 
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
         yolo_out, out = [], []
+        # verbose=True
         if verbose:
             print('0', x.shape)
             str = ''
@@ -288,7 +369,7 @@ class Darknet(nn.Module):
             name = module.__class__.__name__
             if name in ['WeightedFeatureFusion', 'FeatureConcat']:  # sum, concat
                 if verbose:
-                    l = [i - 1] + module.layers  # layers
+                    l = module.layers  # [i - 1] + module.layers  # layers
                     sh = [list(x.shape)] + [list(out[i].shape) for i in module.layers]  # shapes
                     str = ' >> ' + ' + '.join(['layer %g %s' % x for x in zip(l, sh)])
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
@@ -322,6 +403,7 @@ class Darknet(nn.Module):
         # Fuse Conv2d + BatchNorm2d layers throughout model
         print('Fusing layers...')
         fused_list = nn.ModuleList()
+
         for a in list(self.children())[0]:
             if isinstance(a, nn.Sequential):
                 for i, b in enumerate(a):
