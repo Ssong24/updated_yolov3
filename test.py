@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 from models import *
 from utils.datasets import *
 from utils.utils import *
+from collections import defaultdict
+import numpy as np
 
 
 def test(cfg,
@@ -20,7 +22,10 @@ def test(cfg,
          augment=False,
          model=None,
          dataloader=None,
-         multi_label=True):
+         multi_label=True,
+         data_format='cityscape',
+         n_classes=8,
+         gt_json='kitti_original_gt.json'):
     # Initialize/load model and set device
     if model is None:
         is_training = False
@@ -37,7 +42,7 @@ def test(cfg,
         # Load weights
         attempt_download(weights)
         if weights.endswith('.pt'):  # pytorch format
-            model.load_state_dict(torch.load(weights, map_location=device)['model'])
+            model.load_state_dict(torch.load(weights, map_location=device)['model'], strict=False)
         else:  # darknet format
             load_darknet_weights(model, weights)
 
@@ -55,15 +60,18 @@ def test(cfg,
     # Configure run
     data = parse_data_cfg(data)
     nc = 1 if single_cls else int(data['classes'])  # number of classes
-    path = data['valid']  # path to test images
+
+    path = data['valid']  # path to test images -- train.py mode
     names = load_classes(data['names'])  # class names
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
-    niou = iouv.numel()
+    niou = iouv.numel()  # 10?
 
-    # Dataloader
+    # Dataloader -- test mode
     if dataloader is None:
-        dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls, pad=0.5)
+        path = data['test']
+        dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls, pad=0.5
+                                      , data_format=data_format, n_classes=n_classes)
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
@@ -77,11 +85,12 @@ def test(cfg,
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
-    loss = torch.zeros(3, device=device)
+    loss = torch.zeros(4, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
+
     for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
-        targets = targets.to(device)
+        targets = targets.to(device)  # img id, class id, x, y, w, h
         nb, _, height, width = imgs.shape  # batch size, channels, height, width
         whwh = torch.Tensor([width, height, width, height]).to(device)
 
@@ -94,7 +103,7 @@ def test(cfg,
 
             # Compute loss
             if is_training:  # if model has loss hyperparameters
-                loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
+                loss += compute_loss(train_out, targets, model, loss_size=False)[1][:4]  # GIoU, obj, cls, size
 
             # Run NMS
             t = torch_utils.time_synchronized()
@@ -102,8 +111,9 @@ def test(cfg,
             t1 += torch_utils.time_synchronized() - t
 
         # Statistics per image
-        for si, pred in enumerate(output):
-            labels = targets[targets[:, 0] == si, 1:]
+        for si, pred in enumerate(output):  # pred: (x1,y1,x2,y2,conf,cls)
+            labels = targets[targets[:, 0] == si, 1:]  # targets[:,0] - image id
+
             nl = len(labels)
             tcls = labels[:, 0].tolist() if nl else []  # target class
             seen += 1
@@ -125,6 +135,7 @@ def test(cfg,
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split('_')[-1])
                 box = pred[:, :4].clone()  # xyxy
+
                 scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
@@ -136,6 +147,7 @@ def test(cfg,
 
             # Assign all predictions as incorrect
             correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
+
             if nl:
                 detected = []  # target indices
                 tcls_tensor = labels[:, 0]
@@ -176,7 +188,7 @@ def test(cfg,
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats):
         p, r, ap, f1, ap_class = ap_per_class(*stats)
-        if niou > 1:
+        if niou > 1:  # What is this?
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
@@ -200,27 +212,34 @@ def test(cfg,
     # Save JSON
     if save_json and map and len(jdict):
         print('\nCOCO mAP with pycocotools...')
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
-        with open('results.json', 'w') as file:
+        if data_format == "cityscape":
+            image_name = Path(paths[si]).stem
+            imgIds = int(image_name.split('_')[1] + image_name.split('_')[2])
+        else:
+            imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        json_folder = 'results/' + weights.split('\\')[-3]
+        json_file = json_folder + '/results.json'
+
+        print('weights: ', weights)
+        print('json_file: ', json_folder + '/results.json')
+        print('gt_json: ', gt_json)
+
+        with open(json_file, 'w') as file:
             json.dump(jdict, file)
 
-        try:
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
+        from pycocotools.coco import COCO
+        from pycocotools.cocoeval import COCOeval
 
-            # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-            cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
-            cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
+        # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
+        cocoGt = COCO(gt_json)  # initialize COCO ground truth api
+        cocoDt = cocoGt.loadRes(json_file)  # initialize COCO pred api
 
-            cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
-            cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
-            # mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
-        except:
-            print('WARNING: pycocotools must be installed with numpy==1.17 to run correctly. '
-                  'See https://github.com/cocodataset/cocoapi/issues/356')
+        cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
+        cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
+
+        cocoEval.evaluate()
+        cocoEval.accumulate()
+        cocoEval.summarize()
 
     # Return results
     maps = np.zeros(nc) + map
@@ -240,9 +259,14 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
     parser.add_argument('--task', default='test', help="'test', 'study', 'benchmark'")
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
+    # Song's argument
+    parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
+    parser.add_argument('--n-classes', type=int, default=8, help='number of classes')
+    parser.add_argument('--gt-json', type=str, default='kitti_original.json',
+                        help='Name of grundtruth label with coco format ')
     opt = parser.parse_args()
     opt.save_json = opt.save_json or any([x in opt.data for x in ['coco.data', 'coco2014.data', 'coco2017.data']])
     opt.cfg = check_file(opt.cfg)  # check file
@@ -260,7 +284,10 @@ if __name__ == '__main__':
              opt.iou_thres,
              opt.save_json,
              opt.single_cls,
-             opt.augment)
+             opt.augment,
+             data_format=opt.data_format,
+             n_classes=opt.n_classes,
+             gt_json=opt.gt_json)
 
     elif opt.task == 'benchmark':  # mAPs at 256-640 at conf 0.5 and 0.7
         y = []
