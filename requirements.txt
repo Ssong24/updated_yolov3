@@ -2,25 +2,24 @@
 
 # base ----------------------------------------
 Cython
-matplotlib>=3.2.2
-numpy>=1.18.5
-opencv-python>=4.1.2
+matplotlib
+# numpy
+opencv-python
 pillow
-PyYAML>=5.3
-scipy>=1.4.1
-tensorboard>=2.2
+PyYAML
+scipy
+tensorboard
 # torch>=1.6.0
-# torchvision>=0.7.0
-tqdm>=4.41.0
-
+# torchvision?=0.7.0
+tqdm
 # coco ----------------------------------------
-pycocotools==2.0
+pycocotools
 
 # export --------------------------------------
-# packaging  # for coremltools
-coremltools==4.0b3
-onnx>=1.7.0
-scikit-learn==0.19.2  # for coreml quantization
+# packaging  # for coremltools ==4.0b3
+coremltools
+onnx
+scikit-learn  # for coreml quantization
 
 # extras --------------------------------------
 thop  # FLOPS computation
