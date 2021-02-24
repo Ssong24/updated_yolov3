@@ -3,10 +3,7 @@
 
 import os
 import time
-
-
 # from google.cloud import storage
-
 
 def gdrive_download(id='1HaXkef9z6y5l4vUnCYgdmEAj61c6bfWO', name='coco.zip'):
     # https://gist.github.com/tanaikech/f0f2d122e05bf5f971611258c22c110f
@@ -43,7 +40,6 @@ def gdrive_download(id='1HaXkef9z6y5l4vUnCYgdmEAj61c6bfWO', name='coco.zip'):
     print('Done (%.1fs)' % (time.time() - t))
     return r
 
-
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     # Uploads a file to a bucket
     # https://cloud.google.com/storage/docs/uploading-objects#storage-upload-object-python
@@ -57,7 +53,6 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
     print('File {} uploaded to {}.'.format(
         source_file_name,
         destination_blob_name))
-
 
 def download_blob(bucket_name, source_blob_name, destination_file_name):
     # Uploads a blob from a bucket

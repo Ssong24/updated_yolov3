@@ -32,6 +32,12 @@ class FeatureConcat(nn.Module):
         self.multiple = len(layers) > 1  # multiple layers flag
 
     def forward(self, x, outputs):
+        # print('self.layers = {} x.shape={} outputs length= {}'.format(self.layers, x.shape, len(outputs)))
+
+        # print('self.multiple: ', self.multiple)
+        # if self.multiple:
+        #     for i in self.layers:
+        #         print('{} {}'.format(i,outputs[i].shape))
         return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
 
 
@@ -52,16 +58,21 @@ class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers http
 
         # Fusion
         nx = x.shape[1]  # input channels
+
+
         for i in range(self.n - 1):
             a = outputs[self.layers[i]] * w[i + 1] if self.weight else outputs[self.layers[i]]  # feature to add
             na = a.shape[1]  # feature channels
+
 
             # Adjust channels
             if nx == na:  # same shape
                 x = x + a
             elif nx > na:  # slice input
+                print('nx > na')
                 x[:, :na] = x[:, :na] + a  # or a = nn.ZeroPad2d((0, 0, 0, 0, 0, dc))(a); x = x + a
             else:  # slice feature
+                print('x a[:, :nx')
                 x = x + a[:, :nx]
 
         return x
