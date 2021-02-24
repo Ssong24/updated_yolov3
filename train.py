@@ -26,7 +26,7 @@ hyp = {'giou': 3.54,  # giou loss gain
        'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.00015,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+       'lr0': 0.00013,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
        'lrf': 0.0005,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.0005,  # optimizer weight decay
@@ -34,17 +34,18 @@ hyp = {'giou': 3.54,  # giou loss gain
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
        'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
        'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
-       'degrees': 1.98,  # * 0,  # image rotation (+/- deg)
-       'translate': 0.05,  # * 0,  # image translation (+/- fraction)
-       'scale': 0.05,  # * 0,  # image scale (+/- gain)
-       'shear': 0.641}  # * 0}  # image shear (+/- deg)
+       ## for quick test, set as zero
+       'degrees': 1.98 ,#* 0,  # image rotation (+/- deg)
+       'translate': 0.05,# * 0,  # image translation (+/- fraction)
+       'scale': 0.05 ,#* 0,  # image scale (+/- gain)
+       'shear': 0.641}# * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt (optional)
-f = glob.glob('hyp*.txt')
-if f:
-    print('Using %s' % f[0])
-    for k, v in zip(hyp.keys(), np.loadtxt(f[0])):
-        hyp[k] = v
+# f = glob.glob('hyp*.txt')
+# if f:
+#     print('Using %s' % f[0])
+#     for k, v in zip(hyp.keys(), np.loadtxt(f[0])):
+#         hyp[k] = v
 
 # Print focal loss if gamma > 0
 if hyp['fl_gamma']:
@@ -52,7 +53,6 @@ if hyp['fl_gamma']:
 
 
 def train(hyp):
-    output = opt.output
     cfg = opt.cfg
     data = opt.data
     epochs = opt.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
@@ -60,6 +60,7 @@ def train(hyp):
     accumulate = max(round(64 / batch_size), 1)  # accumulate n times before optimizer update (bs 64)
     weights = opt.weights  # initial training weights
     imgsz_min, imgsz_max, imgsz_test = opt.img_size  # img sizes (min, max, test)
+    verbose = opt.verbose
 
     # Image Sizes
     gs = 32  # (pixels) grid size
@@ -84,9 +85,14 @@ def train(hyp):
     # Remove previous results
     for f in glob.glob('*_batch*.jpg') + glob.glob(results_file):
         os.remove(f)
+    with open(results_file, 'a') as f:
+        # print('results: ', results)
+        f.write('%10s' * 9 % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'size', 'total', 'targets', 'img_size'))
+
+        f.write('%10.4s' * 8 %('P', 'R', 'mAP@0.5', 'F1', 'GIoU', 'obj', 'cls', 'size') + '\n')
 
     # Initialize model
-    model = Darknet(cfg).to(device)
+    model = Darknet(cfg,verbose=verbose).to(device)
 
     # Optimizer
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
@@ -109,7 +115,9 @@ def train(hyp):
 
     start_epoch = 0
     best_fitness = 0.0
-    attempt_download(weights)
+    # Comment for  train without pretrained model
+    # attempt_download(weights)
+
     if weights.endswith('.pt'):  # pytorch format
         # possible weights are '*.pt', 'yolov3-spp.pt', 'yolov3-tiny.pt' etc.
         ckpt = torch.load(weights, map_location=device)
@@ -166,23 +174,23 @@ def train(hyp):
     # https://discuss.pytorch.org/t/a-problem-occured-when-resuming-an-optimizer/28822
 
     # Plot lr schedule
-    y = []
-    for _ in range(epochs):
-        scheduler.step()
-        y.append(optimizer.param_groups[0]['lr'])
-    plt.plot(y, '.-', label='LambdaLR')
-    plt.xlabel('epoch')
-    plt.ylabel('LR')
-    plt.tight_layout()
-    plt.savefig(output+os.sep+'LR.png', dpi=300)
+    # y = []
+    # for _ in range(epochs):
+    #     scheduler.step()
+    #     y.append(optimizer.param_groups[0]['lr'])
+    # plt.plot(y, '.-', label='LambdaLR')
+    # plt.xlabel('epoch')
+    # plt.ylabel('LR')
+    # plt.tight_layout()
+    # plt.savefig(output+os.sep+'LR.png', dpi=300)
 
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
-        dist.init_process_group(backend='nccl',  # 'distributed backend'
+        dist.init_process_group(backend='nccl',  # 'distributed backend'torc
                                 init_method='tcp://127.0.0.1:9999',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
-        model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(model,  find_unused_parameters=True)
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
     ##################################################################
@@ -250,30 +258,36 @@ def train(hyp):
     n_burn = max(3 * nb, 500)  # burn-in iterations, max(3 epochs, 500 iterations)
     maps = np.zeros(nc)  # mAP per class
     # torch.autograd.set_detect_anomaly(True)
-    results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+    results = (0, 0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification', 'val Size for Small objects'
     t0 = time.time()
     print('Image sizes %g - %g train, %g test' % (imgsz_min, imgsz_max, imgsz_test))
     print('Using %g dataloader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
 
+
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
-
         # Update image weights (optional)
         if dataset.image_weights:
             w = model.class_weights.cpu().numpy() * (1 - maps) ** 2  # class weights
             image_weights = labels_to_image_weights(dataset.labels, nc=nc, class_weights=w)
             dataset.indices = random.choices(range(dataset.n), weights=image_weights, k=dataset.n)  # rand weighted idx
 
-        mloss = torch.zeros(4).to(device)  # mean losses
-        print(('\n' + '%10s' * 8) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'total', 'targets', 'img_size'))
+        mloss = torch.zeros(5).to(device)  # mean losses
+        print(('\n' + '%10s' * 9) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'size',  'total', 'targets', 'img_size'))
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
         for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
 
-            # Burn-in
+            # print('##' * 20 + "Path" + '##' * 20)
+            # for pat in paths:
+            #     print(pat)
+            # print('number of targets: ', len(targets))
+            # print('targets: ', targets)
+
+            # Burn-in  -- what is this?
             if ni <= n_burn:
                 xi = [0, n_burn]  # x interp
                 model.gr = np.interp(ni, xi, [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
@@ -296,9 +310,13 @@ def train(hyp):
 
             # Forward
             pred = model(imgs)
-
-            # Loss
-            loss, loss_items = compute_loss(pred, targets, model)
+            # input('check check!!!')
+            # song_c = input('stop')
+            # if (song_c == '0'):
+            #     exit(0)
+            # print('Path: {} \nn(targets): {}'.format(paths, len(targets)))
+            # # Loss
+            loss, loss_items = compute_loss(pred, targets, model, loss_size=False)
             if not torch.isfinite(loss):
                 print('WARNING: non-finite loss, ending training ', loss_items)
                 return results
@@ -312,19 +330,20 @@ def train(hyp):
                 loss.backward()
 
             # Optimize
-            if ni % accumulate == 0:
+            if ni % accumulate == 0:  # What does this condition means?
                 optimizer.step()
                 optimizer.zero_grad()
                 ema.update(model)
 
             # Print
             mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
-            mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-            s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *mloss, len(targets), img_size)
+            mem = '%.3gG' % (torch.cuda.memory_reserved()/ 1E9 if torch.cuda.is_available() else 0)  # (GB) # torch.cuda.memory_reserved() /
+            s = ('%10s' * 2 + '%10.4g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *mloss, len(targets), img_size)
             pbar.set_description(s)
 
             # Plot
-
+            # When bs = 24, why plot only 16? Because of the targets?
+            # Is it the maximum...?
             if ni < 1:
                 f = 'train_batch%g.jpg' % i  # filename
                 # f = 'train_batch.jpg'
@@ -338,7 +357,7 @@ def train(hyp):
         # Update scheduler
         scheduler.step()
 
-        # Process epoch results
+        # Process epoch results -- how to test KITTI or CityScape in COCO standard?
         ema.update_attr(model)
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
@@ -355,17 +374,19 @@ def train(hyp):
 
         # Write
         with open(results_file, 'a') as f:
-            f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+            # print('results: ', results)
+            f.write(s + '%10.3g' * 8 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls, size)
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
 
         # Tensorboard
         if tb_writer:
-            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss',
+            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss', 'train/size_loss',
                     'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/F1',
-                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss']
+                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss', 'val/size_loss']
             for x, tag in zip(list(mloss[:-1]) + list(results), tags):
                 tb_writer.add_scalar(tag, x, epoch)
+            # AP for each class
             for ap, cn in zip(list(maps), class_names):
                 tb_writer.add_scalar('metrics_class/mAP_0.5_'+cn, ap, epoch)
 
@@ -400,10 +421,12 @@ def train(hyp):
         fresults, flast, fbest = wdir + 'results%s.txt' % n, wdir + 'last%s.pt' % n, wdir + 'best%s.pt' % n
         for f1, f2 in zip([wdir + 'last.pt', wdir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
             if os.path.exists(f1):
-                os.rename(f1, f2)  # rename
-                ispt = f2.endswith('.pt')  # is *.pt
-                strip_optimizer(f2) if ispt else None  # strip optimizer
-                os.system('gsutil cp %s gs://%s/weights' % (f2, opt.bucket)) if opt.bucket and ispt else None  # upload
+                f2_split = f2.replace('\\','/').split('/')[-1].split('.')[0]
+                f2_new = f1.replace("last", "last_" + f2_split)
+                os.rename(f1, f2_new)  # rename
+                ispt = f2_new.endswith('.pt')  # is *.pt
+                strip_optimizer(f2_new) if ispt else None  # strip optimizer
+                os.system('gsutil cp %s gs://%s/weights' % (f2_new, opt.bucket)) if opt.bucket and ispt else None  # upload
 
     if not opt.evolve:
         plot_results()  # save as results.png
@@ -415,7 +438,7 @@ def train(hyp):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=300)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--epochs', type=int, default=250)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
@@ -428,7 +451,7 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='', help='initial weights path')
     parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -439,27 +462,47 @@ if __name__ == '__main__':
     parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
     parser.add_argument('--n-classes', type=int, help='number of classes')
     parser.add_argument('--noBoard', action='store_true', help='No tensoboard.')
+    parser.add_argument('--verbose', action='store_true', help='Display the architecture of the model')
     opt = parser.parse_args()
 
     check_git_status()
     opt.cfg = check_file(opt.cfg)  # check file
     opt.data = check_file(opt.data)  # check file
-    print(opt)
+
+    # user arguments for string type
+    str_opt = str(opt)
+    str_opt = '-'*15 + ' User Argument ' + '-'*15 + '\n' +\
+              str_opt.replace('Namespace(', ' ').replace(')', '').replace(',', ',\n') +\
+              '\n' + '-'*40+'\n'
+    print(str_opt)
+
+    # update hyp['giou'], hyp['cls'], hyp['obj'] by data format
+    if opt.data_format == 'cityscape' or opt.data_format == 'fisheye': #or opt.data_format == 'kitti':
+        hyp['giou'] /= 2.0
+        hyp['cls'] /= 2.0
+        hyp['obj'] /= 2.0
+
+    str_hyp = '-'*12 + ' Hyper-parameter ' + '-'*12 +  '\n' +\
+              str(hyp).replace('{', ' ').replace('}', '').replace(',',',\n') +\
+              '\n' + '-'*40
+    print(str_hyp)
     # create directory for new trained model
     if not os.path.exists(opt.output):
         os.makedirs(opt.output)
-    with open(os.path.join(opt.output, 'opts.txt'), "w") as f_opt:
-        f_opt.writelines(str(opt))
 
-    wdir = opt.output + os.sep + 'weights' + os.sep  # weights dir
+    # write user argument and hyper-parmeter
+    with open(os.path.join(opt.output, 'opts.txt'), "w") as f_opt:
+        f_opt.writelines(str_opt + str_hyp)
+
+    # weights directory
+    wdir = opt.output + os.sep + 'weights' + os.sep
     if not os.path.exists(wdir):
         os.makedirs(wdir)
     last = wdir + 'last.pt'
     best = wdir + 'best.pt'
     results_file = opt.output + os.sep + 'results.txt'
+
     opt.weights = last if opt.resume and not opt.weights else opt.weights
-
-
     opt.img_size.extend([opt.img_size[-1]] * (3 - len(opt.img_size)))  # extend to 3 sizes (min, max, test)
     device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
     if device.type == 'cpu':
@@ -468,11 +511,20 @@ if __name__ == '__main__':
     # scale hyp['obj'] by img_size (evolved at 320)
     # hyp['obj'] *= opt.img_size[0] / 320.
 
+    input('Check!')
     tb_writer = None
     if not opt.evolve:  # Train normally
+        # Set tensorboard directory name as "runs/current-time_output"
+        from datetime import datetime
+        now = datetime.now()
+        month_day = now.strftime("%b%d")
+        host_time = now.strftime("%H-%M-%S")
+        date_time = month_day + "_" + host_time + "_"
+        tb_dir = os.path.join('runs', date_time + opt.output.replace("\\",'/').split('/')[-1])
+
         print('Start with "tensorboard --logdir=runs", view at http://localhost:6006/')
         if not opt.noBoard:
-            tb_writer = SummaryWriter(comment=opt.name)
+            tb_writer = SummaryWriter(tb_dir)  #(comment=opt.name)
         train(hyp)  # train normally
 
     else:  # Evolve hyperparameters (optional)
