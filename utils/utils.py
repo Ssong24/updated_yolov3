@@ -896,17 +896,17 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(640, 640), thr=0.20, 
     k = print_results(k)
 
     # # Plot
-    # k, d = [None] * 20, [None] * 20
-    # for i in tqdm(range(1, 21)):
-    #     k[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))
-    # ax = ax.ravel()
-    # ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
-    # ax[0].hist(wh[wh[:, 0]<100, 0],400)
-    # ax[1].hist(wh[wh[:, 1]<100, 1],400)
-    # fig.tight_layout()
-    # fig.savefig('wh.png', dpi=200)
+    k, d = [None] * 20, [None] * 20
+    for i in tqdm(range(1, 21)):
+        k[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
+    fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+    ax = ax.ravel()
+    ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
+    fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
+    ax[0].hist(wh[wh[:, 0]<100, 0],400)
+    ax[1].hist(wh[wh[:, 1]<100, 1],400)
+    fig.tight_layout()
+    fig.savefig('wh.png', dpi=200)
 
     # Evolve
     npr = np.random
@@ -1278,3 +1278,10 @@ def plot_results(start=0, stop=0, bucket='', id=(), output=''):  # from utils.ut
 
     ax[1].legend()
     fig.savefig(result_png_path, dpi=200)
+
+
+
+def get_cityscape_img_id(filepath):
+    alphabet_order = 'abcdefghijklmnopqrstuvwxyz'
+    img_id = int(Path(filepath).stem.split('_')[1] + str(int(Path(filepath).stem.split('_')[2])) + str(alphabet_order.find(Path(filepath).stem[0]) + 1))
+    return img_id
