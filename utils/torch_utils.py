@@ -33,16 +33,17 @@ def select_device(device='', apex=False, batch_size=None):
             assert batch_size % ng == 0, 'batch-size %g not multiple of GPU count %g' % (batch_size, ng)
         x = [torch.cuda.get_device_properties(i) for i in range(ng)]
         s = 'Using CUDA ' + ('Apex ' if apex else '')  # apex for mixed precision https://github.com/NVIDIA/apex
+        device_message =''
         for i in range(0, ng):
             if i == 1:
                 s = ' ' * len(s)
-            print("%sdevice%g _CudaDeviceProperties(name='%s', total_memory=%dMB)" %
-                  (s, i, x[i].name, x[i].total_memory / c))
+            device_message += "%sdevice%g _CudaDeviceProperties(name='%s', total_memory=%dMB)\n" % (s, i, x[i].name, x[i].total_memory / c)
+        print(device_message)
     else:
-        print('Using CPU')
+        print('Using CPU\n')
 
-    print('')  # skip a line
-    return torch.device('cuda:0' if cuda else 'cpu')
+    # print('')  # skip a line
+    return torch.device('cuda:0' if cuda else 'cpu'), device_message
 
 
 def time_synchronized():
