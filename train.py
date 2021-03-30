@@ -20,25 +20,25 @@ except:
 wdir, last, best, results_file = '', '','',''
 
 # Hyperparameters
-hyp = {'giou': 3.54,  # giou loss gain
-       'cls': 37.4,  # cls loss gain
+hyp = {'giou': 1.77, #3.54,  # giou loss gain
+       'cls':  14.96, #37.4,  # cls loss gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
-       'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
+       'obj': 12.86,  # 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.00013,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-       'lrf': 0.0005,  # final learning rate (with cos scheduler)
-       'momentum': 0.937,  # SGD momentum
-       'weight_decay': 0.0005,  # optimizer weight decay
+       'lr0': 0.00025,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+       'lrf': 0.12,  # final learning rate (with cos scheduler)
+       'momentum': 0.843,  # SGD momentum
+       'weight_decay': 0.00036,  # optimizer weight decay
        'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
-       'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
-       'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
+       'hsv_s': 0.664,  # image HSV-Saturation augmentation (fraction)
+       'hsv_v': 0.464,  # image HSV-Value augmentation (fraction)
        ## for quick test, set as zero
-       'degrees': 1.98 ,#* 0,  # image rotation (+/- deg)
-       'translate': 0.05,# * 0,  # image translation (+/- fraction)
-       'scale': 0.05 ,#* 0,  # image scale (+/- gain)
-       'shear': 0.641}# * 0}  # image shear (+/- deg)
+       'degrees': 0.373 ,#* 0,  # image rotation (+/- deg)
+       'translate': 0.245,# * 0,  # image translation (+/- fraction)
+       'scale':  0.898 ,#* 0,  # image scale (+/- gain)
+       'shear': 0.602 }# * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt (optional)
 # f = glob.glob('hyp*.txt')
@@ -56,6 +56,7 @@ def train(hyp):
     cfg = opt.cfg
     data = opt.data
     epochs = opt.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
+    names = opt.names
     batch_size = opt.batch_size
     accumulate = max(round(64 / batch_size), 1)  # accumulate n times before optimizer update (bs 64)
     weights = opt.weights  # initial training weights
@@ -105,7 +106,7 @@ def train(hyp):
             pg0 += [v]  # all else
 
     if opt.adam:
-        optimizer = optim.Adam(pg0, lr=hyp['lr0'])
+        optimizer = optim.Adam(pg0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
@@ -136,8 +137,10 @@ def train(hyp):
             optimizer.load_state_dict(ckpt['optimizer'])
             best_fitness = ckpt['best_fitness']
 
+
         # load results
         if ckpt.get('training_results') is not None:
+
             with open(results_file, 'w') as file:
                 file.write(ckpt['training_results'])  # write results.txt
 
@@ -168,21 +171,22 @@ def train(hyp):
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
 
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
-    lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05  # cosine
+    #lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05  # cosine
+    lf = lambda x: ((1- math.cos(x * math.pi / epochs)) / 2) * (hyp['lrf'] - 1) + 1
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     scheduler.last_epoch = start_epoch - 1  # see link below
     # https://discuss.pytorch.org/t/a-problem-occured-when-resuming-an-optimizer/28822
 
     # Plot lr schedule
-    # y = []
-    # for _ in range(epochs):
-    #     scheduler.step()
-    #     y.append(optimizer.param_groups[0]['lr'])
-    # plt.plot(y, '.-', label='LambdaLR')
-    # plt.xlabel('epoch')
-    # plt.ylabel('LR')
-    # plt.tight_layout()
-    # plt.savefig(output+os.sep+'LR.png', dpi=300)
+    y = []
+    for _ in range(epochs):
+        scheduler.step()
+        y.append(optimizer.param_groups[0]['lr'])
+    plt.plot(y, '.-', label='LambdaLR')
+    plt.xlabel('epoch')
+    plt.ylabel('LR')
+    plt.tight_layout()
+    plt.savefig(opt.output +os.sep+'LR.png', dpi=300)
 
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
@@ -192,24 +196,6 @@ def train(hyp):
                                 rank=0)  # distributed training node rank
         model = torch.nn.parallel.DistributedDataParallel(model,  find_unused_parameters=True)
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
-
-    ##################################################################
-    # 2020.11.24.Wed
-    # Song's Edited Code : Display the Model
-    # command: 
-    # print('=== YOLO ({}) Architecture ==='.format(opt.cfg))
-    # for i in model.module_list:
-    #     print(i)
-    # print("YOLO({})'s module_defs...".format(opt.cfg.split('\\')[-1]))
-    # for i, m in enumerate(model.module_defs):
-    #     print('[{}] {}'.format(i, m))
-    # 
-    # print("Print module name of the model")
-    # for i, module in enumerate(model.module_list):
-    #     print("[{}] name: {}".format(i, module.__class__.__name__))
-    # input('STOP')
-    ##################################################################
-
 
     # Dataset
     dataset = LoadImagesAndLabels(train_path, img_size, batch_size,
@@ -281,12 +267,6 @@ def train(hyp):
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
 
-            # print('##' * 20 + "Path" + '##' * 20)
-            # for pat in paths:
-            #     print(pat)
-            # print('number of targets: ', len(targets))
-            # print('targets: ', targets)
-
             # Burn-in  -- what is this?
             if ni <= n_burn:
                 xi = [0, n_burn]  # x interp
@@ -310,12 +290,8 @@ def train(hyp):
 
             # Forward
             pred = model(imgs)
-            # input('check check!!!')
-            # song_c = input('stop')
-            # if (song_c == '0'):
-            #     exit(0)
-            # print('Path: {} \nn(targets): {}'.format(paths, len(targets)))
-            # # Loss
+
+            # Loss
             loss, loss_items = compute_loss(pred, targets, model, loss_size=False)
             if not torch.isfinite(loss):
                 print('WARNING: non-finite loss, ending training ', loss_items)
@@ -376,8 +352,8 @@ def train(hyp):
         with open(results_file, 'a') as f:
             # print('results: ', results)
             f.write(s + '%10.3g' * 8 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls, size)
-        if len(opt.name) and opt.bucket:
-            os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
+        if len(names) and opt.bucket:
+            os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, names))
 
         # Tensorboard
         if tb_writer:
@@ -414,7 +390,7 @@ def train(hyp):
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
 
-    n = opt.name
+    n = names
     if len(n):
         n = n if not n.isnumeric() else n
         n = '_' + n.split('\\')[-1].split(".")[0]
@@ -429,7 +405,7 @@ def train(hyp):
                 os.system('gsutil cp %s gs://%s/weights' % (f2_new, opt.bucket)) if opt.bucket and ispt else None  # upload
 
     if not opt.evolve:
-        plot_results()  # save as results.png
+        plot_results(output=opt.output)  # save as results.png
     print('%g epochs completed in %.3f hours.\n' % (epoch - start_epoch + 1, (time.time() - t0) / 3600))
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
@@ -438,13 +414,24 @@ def train(hyp):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=250)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
+    parser.add_argument('--names', default='', help='renames results.txt to results_name.txt if supplied')
+    ### Song's edited ###
+    parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
+    parser.add_argument('--n-classes', type=int, help='number of classes')
+    #####################
+
+    parser.add_argument('--adam', action='store_true', help='use adam optimizer')
+    parser.add_argument('--rect', action='store_true', help='rectangular training')
+
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[320, 640], help='[min_train, max-train, test]')
-    parser.add_argument('--rect', action='store_true', help='rectangular training')
+    parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+
+    parser.add_argument('--epochs', type=int, default=250)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
@@ -452,17 +439,14 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights', type=str, default='', help='initial weights path')
-    parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
-    parser.add_argument('--adam', action='store_true', help='use adam optimizer')
+    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--freeze-layers', action='store_true', help='Freeze non-output layers')
     # Song's argument
     parser.add_argument('--output', type=str, default='test', help='result folder')
-    parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
-    parser.add_argument('--n-classes', type=int, help='number of classes')
     parser.add_argument('--noBoard', action='store_true', help='No tensoboard.')
     parser.add_argument('--verbose', action='store_true', help='Display the architecture of the model')
+    parser.add_argument('--lr0', type=float, help='Initial learning rate')
     opt = parser.parse_args()
 
     check_git_status()
@@ -473,26 +457,27 @@ if __name__ == '__main__':
     str_opt = str(opt)
     str_opt = '-'*15 + ' User Argument ' + '-'*15 + '\n' +\
               str_opt.replace('Namespace(', ' ').replace(')', '').replace(',', ',\n') +\
-              '\n' + '-'*40+'\n'
+              '\n' + '-'*40 +'\n'
     print(str_opt)
 
     # update hyp['giou'], hyp['cls'], hyp['obj'] by data format
-    if opt.data_format == 'cityscape' or opt.data_format == 'fisheye': #or opt.data_format == 'kitti':
-        hyp['giou'] /= 2.0
-        hyp['cls'] /= 2.0
-        hyp['obj'] /= 2.0
+    # if opt.data_format == 'cityscape' or opt.data_format == 'fisheye': #or opt.data_format == 'kitti':
+    #     hyp['giou'] /= 2.0
+    #     hyp['cls'] /= 2.0
+    #     hyp['obj'] /= 2.0
+    if opt.lr0 is not None:
+        hyp['lr0'] = opt.lr0
 
-    str_hyp = '-'*12 + ' Hyper-parameter ' + '-'*12 +  '\n' +\
+    str_hyp = '-'*13 + ' Hyper-parameter ' + '-'*14 +  '\n' +\
               str(hyp).replace('{', ' ').replace('}', '').replace(',',',\n') +\
-              '\n' + '-'*40
+              '\n' + '-'*43 + '\n'
     print(str_hyp)
+
     # create directory for new trained model
     if not os.path.exists(opt.output):
         os.makedirs(opt.output)
 
-    # write user argument and hyper-parmeter
-    with open(os.path.join(opt.output, 'opts.txt'), "w") as f_opt:
-        f_opt.writelines(str_opt + str_hyp)
+
 
     # weights directory
     wdir = opt.output + os.sep + 'weights' + os.sep
@@ -504,12 +489,16 @@ if __name__ == '__main__':
 
     opt.weights = last if opt.resume and not opt.weights else opt.weights
     opt.img_size.extend([opt.img_size[-1]] * (3 - len(opt.img_size)))  # extend to 3 sizes (min, max, test)
-    device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
+    device, device_msg = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
     if device.type == 'cpu':
         mixed_precision = False
 
     # scale hyp['obj'] by img_size (evolved at 320)
     # hyp['obj'] *= opt.img_size[0] / 320.
+
+    # write user argument and hyper-parmeter
+    with open(os.path.join(opt.output, 'opts.txt'), "w") as f_opt:
+        f_opt.writelines(str_opt + str_hyp + device_msg)
 
     input('Check!')
     tb_writer = None
