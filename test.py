@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 from models import *
 from utils.datasets import *
 from utils.utils import *
-from collections import defaultdict
+# from collections import defaultdict
 import numpy as np
-
+import openpyxl
 
 def test(cfg,
          data,
@@ -25,11 +25,14 @@ def test(cfg,
          multi_label=True,
          data_format='cityscape',
          n_classes=8,
-         gt_json='kitti_original_gt.json'):
+         gt_json='kitti_original_gt.json',
+         save_result =False,
+         projection=''):
+
     # Initialize/load model and set device
     if model is None:
         is_training = False
-        device = torch_utils.select_device(opt.device, batch_size=batch_size)
+        device, _ = torch_utils.select_device(opt.device, batch_size=batch_size)
         verbose = opt.task == 'test'
 
         # Remove previous
@@ -70,6 +73,8 @@ def test(cfg,
     # Dataloader -- test mode
     if dataloader is None:
         path = data['test']
+
+
         dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls, pad=0.5
                                       , data_format=data_format, n_classes=n_classes)
         batch_size = min(batch_size, len(dataset))
@@ -123,9 +128,7 @@ def test(cfg,
                     stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
                 continue
 
-            # Append to text file
-            # with open('test.txt', 'a') as file:
-            #    [file.write('%11.5g' * 7 % tuple(x) + '\n') for x in pred]
+
 
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
@@ -133,7 +136,13 @@ def test(cfg,
             # Append to pycocotools JSON dictionary
             if save_json:
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
-                image_id = int(Path(paths[si]).stem.split('_')[-1])
+                if data_format == 'kitti':
+                    image_id = int(Path(paths[si]).stem.split('_')[-1])
+                elif data_format == 'cityscape':
+                    image_id = get_cityscape_img_id(paths[si])
+                elif data_format == 'fisheye':
+
+                    image_id = int(Path(paths[si]).stem.split('-')[1] + Path(paths[si]).stem.split('-')[2])
                 box = pred[:, :4].clone()  # xyxy
 
                 scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
@@ -191,13 +200,14 @@ def test(cfg,
         if niou > 1:  # What is this?
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
+
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
 
     # Print results
     pf = '%20s' + '%10.3g' * 6  # print format
-    print(pf % ('all', seen, nt.sum(), mp, mr, map, mf1))
+    print(pf % ('all', seen, nt.sum(), mp, mr, map, mf1))  # result of 'all'
 
     # Print results per class
     if verbose and nc > 1 and len(stats):
@@ -212,12 +222,18 @@ def test(cfg,
     # Save JSON
     if save_json and map and len(jdict):
         print('\nCOCO mAP with pycocotools...')
-        if data_format == "cityscape":
-            image_name = Path(paths[si]).stem
-            imgIds = int(image_name.split('_')[1] + image_name.split('_')[2])
-        else:
+        if data_format == 'kitti':
             imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
-        json_folder = 'results/' + weights.split('\\')[-3]
+        elif data_format == "cityscape":
+            imgIds = [get_cityscape_img_id(x) for x in dataloader.dataset.img_files]
+        elif data_format == "fisheye":
+            imgIds = [int(Path(x).stem.split('-')[1] + Path(x).stem.split('-')[2].split('_')[0]) for x in dataloader.dataset.img_files]
+        else:
+            print('Please set the dataset')
+            exit(-1)
+        # else:
+        #     imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        json_folder = 'results/' + data_format + '/' + projection + weights.split('\\')[-3]
         json_file = json_folder + '/results.json'
 
         print('weights: ', weights)
@@ -241,12 +257,92 @@ def test(cfg,
         cocoEval.accumulate()
         cocoEval.summarize()
 
+        if save_result:
+            dic_col_cocoapi = {
+                # COCOAPI
+                'Model': 1, 'AP': 2, 'AP50': 3, 'AP75': 4,
+                'AP_s-small': 5, 'AP_v-small': 6, 'AP_small': 7, 'AP_medium': 8, 'AP_large': 9,
+                'AR-1': 10, 'AR-10': 11, 'AR-100': 12,
+                'AR_s-small': 13, 'AR_v-small': 14, 'AR_small': 15, 'AR_medium': 16, 'AR_large': 17
+            }
+            dic_col_kitti = {
+                # Class-
+                'Model': 1, 'all': 2,
+                'Pedestrian': 3, 'Person_sitting': 4, 'Cyclist': 5, 'Car': 6, 'Van': 7, 'Truck': 8, 'Tram': 9
+            }
+            dic_col_cityscape = {
+                'Model': 1, 'all': 2,
+                'person': 3, 'rider': 4, 'car': 5, 'truck': 6, 'bus': 7, 'train': 8, 'motorcycle': 9, 'bicycle': 10,
+                'caravan': 11, 'trailer': 12
+            }
+            dic_col_fisheye = {
+                'Model': 1, 'all': 2,
+                'pedestrian': 3, 'rider': 4, 'person_sitting': 5, 'bicycle': 6, 'motorcycle': 7, 'car': 8, 'van': 9,
+                'truck': 10, 'bus': 11
+            }
+
+            if data_format =='cityscape':
+                excel_name = 'results/cs_val_result.xlsx'
+                dic_col_dataset = dic_col_cityscape
+            elif data_format == 'kitti':
+                excel_name = 'results/kitti_test_result.xlsx'
+                dic_col_dataset = dic_col_kitti
+            elif data_format == 'fisheye':
+                excel_name = 'results/fisheye_test_result.xlsx'
+                dic_col_dataset = dic_col_fisheye
+            f_excel = openpyxl.load_workbook(excel_name)
+
+            # Automatically find column number
+            # for wsheet in f_excel:
+            #     for c in range(1, 20):
+            #         if wsheet.cell(row=1, column=c).value == 'Model':
+            #             break  # dir_col_num['Model'] = c
+
+            sheet_cocoapi = f_excel["cocoapi"]
+            sheet_row = 1
+
+            model_version_name = weights.replace("\\", '/').split('/')[-3]  # format: results/[dir name]/weights/best.pt
+
+            while True:
+                if sheet_cocoapi.cell(row=sheet_row, column=1).value == None:
+                    start_row = sheet_row
+                    break
+                sheet_row += 1
+
+            # Write model_version_name in each worksheet except "Targets"
+            for wsheet in f_excel:
+                if wsheet != f_excel["Targets"]:
+                    wsheet.cell(row=start_row, column=dic_col_cocoapi['Model']).value = model_version_name
+
+            # write result value in each specific worksheet
+            write_result_in_excel(f_excel, "class-AP50", start_row, dic_col_dataset, True, names, map, ap)
+            write_result_in_excel(f_excel, "class-Precision", start_row, dic_col_dataset, True, names, mp, p)
+            write_result_in_excel(f_excel, "class-Recall", start_row, dic_col_dataset, True, names, mr, r)
+            write_result_in_excel(f_excel, 'cocoapi', start_row, dic_col_cocoapi, is_class_result=False, coco_values=cocoEval.stats)
+            # write_result_in_excel(f_excel, 'Targets', start_row, dic_col_dataset, True, names, all_value=nt.sum(), class_values=np.reshape(nt, (nc, -1)))
+
+            # Update the value of that file excel
+            f_excel.save(excel_name)
+            f_excel.close()
+
     # Return results
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
     return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps, names
 
+
+def write_result_in_excel(file_excel, worksheet_name, start_row, dir_col,
+                          is_class_result=False, class_names=None, all_value=None, class_values=None, coco_values=None):
+    if is_class_result:
+        for wsheet in file_excel:
+            if wsheet == file_excel[worksheet_name]:
+                wsheet.cell(row=start_row, column=dir_col['all']).value = all_value
+                for i, c in enumerate(class_names):
+                     wsheet.cell(row=start_row, column=dir_col[c]).value = class_values[i][0]
+    else:
+        for i, stat in enumerate(coco_values):
+            file_excel[worksheet_name].cell(row=start_row, column=i+2).value = stat
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
@@ -265,12 +361,14 @@ if __name__ == '__main__':
     # Song's argument
     parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
     parser.add_argument('--n-classes', type=int, default=8, help='number of classes')
-    parser.add_argument('--gt-json', type=str, default='kitti_original.json',
-                        help='Name of grundtruth label with coco format ')
+    parser.add_argument('--gt-json', type=str, default='kitti_original.json', help='Name of grundtruth label with coco format ')
+    parser.add_argument('--save-result', action='store_true', help='save test result in excel file.')
+    parser.add_argument('--projection', type=str, default='', help='fe/ | equi/ | songCylin/')
     opt = parser.parse_args()
     opt.save_json = opt.save_json or any([x in opt.data for x in ['coco.data', 'coco2014.data', 'coco2017.data']])
     opt.cfg = check_file(opt.cfg)  # check file
     opt.data = check_file(opt.data)  # check file
+
     print(opt)
 
     # task = 'test', 'study', 'benchmark'
@@ -287,7 +385,9 @@ if __name__ == '__main__':
              opt.augment,
              data_format=opt.data_format,
              n_classes=opt.n_classes,
-             gt_json=opt.gt_json)
+             gt_json=opt.gt_json,
+             save_result=opt.save_result,
+             projection=opt.projection)
 
     elif opt.task == 'benchmark':  # mAPs at 256-640 at conf 0.5 and 0.7
         y = []
