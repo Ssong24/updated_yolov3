@@ -1,0 +1,348 @@
+layer                                     name  gradient   parameters                shape         mu      sigma
+    0                          0.Conv2d.weight      True          864        [32, 3, 3, 3]  -8.67e-05      0.112
+    1                     0.BatchNorm2d.weight      True           32                 [32]          1          0
+    2                       0.BatchNorm2d.bias      True           32                 [32]          0          0
+    3                          1.Conv2d.weight      True        18432       [64, 32, 3, 3]   0.000242      0.034
+    4                     1.BatchNorm2d.weight      True           64                 [64]          1          0
+    5                       1.BatchNorm2d.bias      True           64                 [64]          0          0
+    6                          2.Conv2d.weight      True         2048       [32, 64, 1, 1]   0.000321      0.072
+    7                     2.BatchNorm2d.weight      True           32                 [32]          1          0
+    8                       2.BatchNorm2d.bias      True           32                 [32]          0          0
+    9                          3.Conv2d.weight      True        18432       [64, 32, 3, 3]   0.000188     0.0339
+   10                     3.BatchNorm2d.weight      True           64                 [64]          1          0
+   11                       3.BatchNorm2d.bias      True           64                 [64]          0          0
+   12                          5.Conv2d.weight      True        73728      [128, 64, 3, 3]  -2.89e-05     0.0241
+   13                     5.BatchNorm2d.weight      True          128                [128]          1          0
+   14                       5.BatchNorm2d.bias      True          128                [128]          0          0
+   15                          6.Conv2d.weight      True         8192      [64, 128, 1, 1]   0.000717     0.0513
+   16                     6.BatchNorm2d.weight      True           64                 [64]          1          0
+   17                       6.BatchNorm2d.bias      True           64                 [64]          0          0
+   18                          7.Conv2d.weight      True        73728      [128, 64, 3, 3]   0.000112     0.0241
+   19                     7.BatchNorm2d.weight      True          128                [128]          1          0
+   20                       7.BatchNorm2d.bias      True          128                [128]          0          0
+   21                          9.Conv2d.weight      True         8192      [64, 128, 1, 1]  -0.000266      0.051
+   22                     9.BatchNorm2d.weight      True           64                 [64]          1          0
+   23                       9.BatchNorm2d.bias      True           64                 [64]          0          0
+   24                         10.Conv2d.weight      True        73728      [128, 64, 3, 3]    -0.0002     0.0241
+   25                    10.BatchNorm2d.weight      True          128                [128]          1          0
+   26                      10.BatchNorm2d.bias      True          128                [128]          0          0
+   27                         12.Conv2d.weight      True       294912     [256, 128, 3, 3]   4.95e-05      0.017
+   28                    12.BatchNorm2d.weight      True          256                [256]          1          0
+   29                      12.BatchNorm2d.bias      True          256                [256]          0          0
+   30                         13.Conv2d.weight      True        32768     [128, 256, 1, 1]   -9.5e-05      0.036
+   31                    13.BatchNorm2d.weight      True          128                [128]          1          0
+   32                      13.BatchNorm2d.bias      True          128                [128]          0          0
+   33                         14.Conv2d.weight      True       294912     [256, 128, 3, 3]  -2.46e-06      0.017
+   34                    14.BatchNorm2d.weight      True          256                [256]          1          0
+   35                      14.BatchNorm2d.bias      True          256                [256]          0          0
+   36                         16.Conv2d.weight      True        32768     [128, 256, 1, 1]   0.000225     0.0359
+   37                    16.BatchNorm2d.weight      True          128                [128]          1          0
+   38                      16.BatchNorm2d.bias      True          128                [128]          0          0
+   39                         17.Conv2d.weight      True       294912     [256, 128, 3, 3]  -5.76e-05      0.017
+   40                    17.BatchNorm2d.weight      True          256                [256]          1          0
+   41                      17.BatchNorm2d.bias      True          256                [256]          0          0
+   42                         19.Conv2d.weight      True        32768     [128, 256, 1, 1]  -6.58e-05      0.036
+   43                    19.BatchNorm2d.weight      True          128                [128]          1          0
+   44                      19.BatchNorm2d.bias      True          128                [128]          0          0
+   45                         20.Conv2d.weight      True       294912     [256, 128, 3, 3]  -1.72e-06      0.017
+   46                    20.BatchNorm2d.weight      True          256                [256]          1          0
+   47                      20.BatchNorm2d.bias      True          256                [256]          0          0
+   48                         22.Conv2d.weight      True        32768     [128, 256, 1, 1]   0.000157      0.036
+   49                    22.BatchNorm2d.weight      True          128                [128]          1          0
+   50                      22.BatchNorm2d.bias      True          128                [128]          0          0
+   51                         23.Conv2d.weight      True       294912     [256, 128, 3, 3]   2.92e-05      0.017
+   52                    23.BatchNorm2d.weight      True          256                [256]          1          0
+   53                      23.BatchNorm2d.bias      True          256                [256]          0          0
+   54                         25.Conv2d.weight      True        32768     [128, 256, 1, 1]   0.000226     0.0361
+   55                    25.BatchNorm2d.weight      True          128                [128]          1          0
+   56                      25.BatchNorm2d.bias      True          128                [128]          0          0
+   57                         26.Conv2d.weight      True       294912     [256, 128, 3, 3]   1.74e-05      0.017
+   58                    26.BatchNorm2d.weight      True          256                [256]          1          0
+   59                      26.BatchNorm2d.bias      True          256                [256]          0          0
+   60                         28.Conv2d.weight      True        32768     [128, 256, 1, 1]   0.000182      0.036
+   61                    28.BatchNorm2d.weight      True          128                [128]          1          0
+   62                      28.BatchNorm2d.bias      True          128                [128]          0          0
+   63                         29.Conv2d.weight      True       294912     [256, 128, 3, 3]   5.26e-07      0.017
+   64                    29.BatchNorm2d.weight      True          256                [256]          1          0
+   65                      29.BatchNorm2d.bias      True          256                [256]          0          0
+   66                         31.Conv2d.weight      True        32768     [128, 256, 1, 1]  -0.000297     0.0361
+   67                    31.BatchNorm2d.weight      True          128                [128]          1          0
+   68                      31.BatchNorm2d.bias      True          128                [128]          0          0
+   69                         32.Conv2d.weight      True       294912     [256, 128, 3, 3]   4.21e-05      0.017
+   70                    32.BatchNorm2d.weight      True          256                [256]          1          0
+   71                      32.BatchNorm2d.bias      True          256                [256]          0          0
+   72                         34.Conv2d.weight      True        32768     [128, 256, 1, 1]   2.84e-05      0.036
+   73                    34.BatchNorm2d.weight      True          128                [128]          1          0
+   74                      34.BatchNorm2d.bias      True          128                [128]          0          0
+   75                         35.Conv2d.weight      True       294912     [256, 128, 3, 3]  -4.58e-05      0.017
+   76                    35.BatchNorm2d.weight      True          256                [256]          1          0
+   77                      35.BatchNorm2d.bias      True          256                [256]          0          0
+   78                         37.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   2.59e-06      0.012
+   79                    37.BatchNorm2d.weight      True          512                [512]          1          0
+   80                      37.BatchNorm2d.bias      True          512                [512]          0          0
+   81                         38.Conv2d.weight      True       131072     [256, 512, 1, 1]  -2.42e-05     0.0255
+   82                    38.BatchNorm2d.weight      True          256                [256]          1          0
+   83                      38.BatchNorm2d.bias      True          256                [256]          0          0
+   84                         39.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   6.23e-06      0.012
+   85                    39.BatchNorm2d.weight      True          512                [512]          1          0
+   86                      39.BatchNorm2d.bias      True          512                [512]          0          0
+   87                         41.Conv2d.weight      True       131072     [256, 512, 1, 1]    3.8e-05     0.0255
+   88                    41.BatchNorm2d.weight      True          256                [256]          1          0
+   89                      41.BatchNorm2d.bias      True          256                [256]          0          0
+   90                         42.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -1.15e-05      0.012
+   91                    42.BatchNorm2d.weight      True          512                [512]          1          0
+   92                      42.BatchNorm2d.bias      True          512                [512]          0          0
+   93                         44.Conv2d.weight      True       131072     [256, 512, 1, 1]   1.25e-07     0.0254
+   94                    44.BatchNorm2d.weight      True          256                [256]          1          0
+   95                      44.BatchNorm2d.bias      True          256                [256]          0          0
+   96                         45.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -1.02e-05      0.012
+   97                    45.BatchNorm2d.weight      True          512                [512]          1          0
+   98                      45.BatchNorm2d.bias      True          512                [512]          0          0
+   99                         47.Conv2d.weight      True       131072     [256, 512, 1, 1]    0.00018     0.0255
+  100                    47.BatchNorm2d.weight      True          256                [256]          1          0
+  101                      47.BatchNorm2d.bias      True          256                [256]          0          0
+  102                         48.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -1.22e-05      0.012
+  103                    48.BatchNorm2d.weight      True          512                [512]          1          0
+  104                      48.BatchNorm2d.bias      True          512                [512]          0          0
+  105                         50.Conv2d.weight      True       131072     [256, 512, 1, 1]  -2.25e-05     0.0255
+  106                    50.BatchNorm2d.weight      True          256                [256]          1          0
+  107                      50.BatchNorm2d.bias      True          256                [256]          0          0
+  108                         51.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   6.82e-06      0.012
+  109                    51.BatchNorm2d.weight      True          512                [512]          1          0
+  110                      51.BatchNorm2d.bias      True          512                [512]          0          0
+  111                         53.Conv2d.weight      True       131072     [256, 512, 1, 1]   -6.9e-05     0.0255
+  112                    53.BatchNorm2d.weight      True          256                [256]          1          0
+  113                      53.BatchNorm2d.bias      True          256                [256]          0          0
+  114                         54.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   1.89e-06      0.012
+  115                    54.BatchNorm2d.weight      True          512                [512]          1          0
+  116                      54.BatchNorm2d.bias      True          512                [512]          0          0
+  117                         56.Conv2d.weight      True       131072     [256, 512, 1, 1]    0.00015     0.0255
+  118                    56.BatchNorm2d.weight      True          256                [256]          1          0
+  119                      56.BatchNorm2d.bias      True          256                [256]          0          0
+  120                         57.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   2.61e-05      0.012
+  121                    57.BatchNorm2d.weight      True          512                [512]          1          0
+  122                      57.BatchNorm2d.bias      True          512                [512]          0          0
+  123                         59.Conv2d.weight      True       131072     [256, 512, 1, 1]  -0.000128     0.0256
+  124                    59.BatchNorm2d.weight      True          256                [256]          1          0
+  125                      59.BatchNorm2d.bias      True          256                [256]          0          0
+  126                         60.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -1.97e-06      0.012
+  127                    60.BatchNorm2d.weight      True          512                [512]          1          0
+  128                      60.BatchNorm2d.bias      True          512                [512]          0          0
+  129                         62.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   1.53e-06     0.0085
+  130                    62.BatchNorm2d.weight      True         1024               [1024]          1          0
+  131                      62.BatchNorm2d.bias      True         1024               [1024]          0          0
+  132                         63.Conv2d.weight      True       524288    [512, 1024, 1, 1]  -1.84e-05     0.0181
+  133                    63.BatchNorm2d.weight      True          512                [512]          1          0
+  134                      63.BatchNorm2d.bias      True          512                [512]          0          0
+  135                         64.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   2.17e-07     0.0085
+  136                    64.BatchNorm2d.weight      True         1024               [1024]          1          0
+  137                      64.BatchNorm2d.bias      True         1024               [1024]          0          0
+  138                         66.Conv2d.weight      True       524288    [512, 1024, 1, 1]   2.39e-05      0.018
+  139                    66.BatchNorm2d.weight      True          512                [512]          1          0
+  140                      66.BatchNorm2d.bias      True          512                [512]          0          0
+  141                         67.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]  -1.41e-06    0.00851
+  142                    67.BatchNorm2d.weight      True         1024               [1024]          1          0
+  143                      67.BatchNorm2d.bias      True         1024               [1024]          0          0
+  144                         69.Conv2d.weight      True       524288    [512, 1024, 1, 1]  -1.94e-05      0.018
+  145                    69.BatchNorm2d.weight      True          512                [512]          1          0
+  146                      69.BatchNorm2d.bias      True          512                [512]          0          0
+  147                         70.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   1.07e-06    0.00851
+  148                    70.BatchNorm2d.weight      True         1024               [1024]          1          0
+  149                      70.BatchNorm2d.bias      True         1024               [1024]          0          0
+  150                         72.Conv2d.weight      True       524288    [512, 1024, 1, 1]   3.62e-05     0.0181
+  151                    72.BatchNorm2d.weight      True          512                [512]          1          0
+  152                      72.BatchNorm2d.bias      True          512                [512]          0          0
+  153                         73.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   4.51e-06     0.0085
+  154                    73.BatchNorm2d.weight      True         1024               [1024]          1          0
+  155                      73.BatchNorm2d.bias      True         1024               [1024]          0          0
+  156                         75.Conv2d.weight      True       524288    [512, 1024, 1, 1]   2.73e-05      0.018
+  157                    75.BatchNorm2d.weight      True          512                [512]          1          0
+  158                      75.BatchNorm2d.bias      True          512                [512]          0          0
+  159                         76.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   2.64e-06     0.0085
+  160                    76.BatchNorm2d.weight      True         1024               [1024]          1          0
+  161                      76.BatchNorm2d.bias      True         1024               [1024]          0          0
+  162                         77.Conv2d.weight      True       524288    [512, 1024, 1, 1]  -3.97e-05      0.018
+  163                    77.BatchNorm2d.weight      True          512                [512]          1          0
+  164                      77.BatchNorm2d.bias      True          512                [512]          0          0
+  165                         84.Conv2d.weight      True  1.04858e+06    [512, 2048, 1, 1]  -1.05e-05     0.0128
+  166                    84.BatchNorm2d.weight      True          512                [512]          1          0
+  167                      84.BatchNorm2d.bias      True          512                [512]          0          0
+  168                         85.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]   7.48e-07    0.00851
+  169                    85.BatchNorm2d.weight      True         1024               [1024]          1          0
+  170                      85.BatchNorm2d.bias      True         1024               [1024]          0          0
+  171                         86.Conv2d.weight      True       524288    [512, 1024, 1, 1]    1.6e-05      0.018
+  172                    86.BatchNorm2d.weight      True          512                [512]          1          0
+  173                      86.BatchNorm2d.bias      True          512                [512]          0          0
+  174                         87.Conv2d.weight      True  4.71859e+06    [1024, 512, 3, 3]  -4.99e-06     0.0085
+  175                    87.BatchNorm2d.weight      True         1024               [1024]          1          0
+  176                      87.BatchNorm2d.bias      True         1024               [1024]          0          0
+  177                         88.Conv2d.weight      True        43008     [42, 1024, 1, 1]  -0.000178     0.0181
+  178                           88.Conv2d.bias      True           42                 [42]      -1.98       1.36
+  179                         91.Conv2d.weight      True       131072     [256, 512, 1, 1]   0.000155     0.0254
+  180                    91.BatchNorm2d.weight      True          256                [256]          1          0
+  181                      91.BatchNorm2d.bias      True          256                [256]          0          0
+  182                         94.Conv2d.weight      True       196608     [256, 768, 1, 1]  -4.18e-05     0.0208
+  183                    94.BatchNorm2d.weight      True          256                [256]          1          0
+  184                      94.BatchNorm2d.bias      True          256                [256]          0          0
+  185                         95.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -8.06e-07      0.012
+  186                    95.BatchNorm2d.weight      True          512                [512]          1          0
+  187                      95.BatchNorm2d.bias      True          512                [512]          0          0
+  188                         96.Conv2d.weight      True       131072     [256, 512, 1, 1]  -6.23e-05     0.0255
+  189                    96.BatchNorm2d.weight      True          256                [256]          1          0
+  190                      96.BatchNorm2d.bias      True          256                [256]          0          0
+  191                         97.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]   -7.6e-06      0.012
+  192                    97.BatchNorm2d.weight      True          512                [512]          1          0
+  193                      97.BatchNorm2d.bias      True          512                [512]          0          0
+  194                         98.Conv2d.weight      True       131072     [256, 512, 1, 1]   5.84e-05     0.0255
+  195                    98.BatchNorm2d.weight      True          256                [256]          1          0
+  196                      98.BatchNorm2d.bias      True          256                [256]          0          0
+  197                         99.Conv2d.weight      True  1.17965e+06     [512, 256, 3, 3]  -5.81e-07      0.012
+  198                    99.BatchNorm2d.weight      True          512                [512]          1          0
+  199                      99.BatchNorm2d.bias      True          512                [512]          0          0
+  200                        100.Conv2d.weight      True        21504      [42, 512, 1, 1]   0.000165     0.0255
+  201                          100.Conv2d.bias      True           42                 [42]      -1.99       1.36
+  202                        103.Conv2d.weight      True        32768     [128, 256, 1, 1]  -9.07e-05     0.0361
+  203                   103.BatchNorm2d.weight      True          128                [128]          1          0
+  204                     103.BatchNorm2d.bias      True          128                [128]          0          0
+  205                        106.Conv2d.weight      True        49152     [128, 384, 1, 1]   5.02e-05     0.0295
+  206                   106.BatchNorm2d.weight      True          128                [128]          1          0
+  207                     106.BatchNorm2d.bias      True          128                [128]          0          0
+  208                        107.Conv2d.weight      True       294912     [256, 128, 3, 3]   3.77e-05      0.017
+  209                   107.BatchNorm2d.weight      True          256                [256]          1          0
+  210                     107.BatchNorm2d.bias      True          256                [256]          0          0
+  211                        109.Conv2d.weight      True        16384     [128, 128, 1, 1]  -6.08e-06     0.0514
+  212                   109.BatchNorm2d.weight      True          128                [128]          1          0
+  213                     109.BatchNorm2d.bias      True          128                [128]          0          0
+  214                        111.Conv2d.weight      True        49152     [128, 384, 1, 1]   2.81e-05     0.0295
+  215                   111.BatchNorm2d.weight      True          128                [128]          1          0
+  216                     111.BatchNorm2d.bias      True          128                [128]          0          0
+  217                        112.Conv2d.weight      True       294912     [256, 128, 3, 3]    3.9e-05      0.017
+  218                   112.BatchNorm2d.weight      True          256                [256]          1          0
+  219                     112.BatchNorm2d.bias      True          256                [256]          0          0
+  220                        113.Conv2d.weight      True        32768     [128, 256, 1, 1]   6.24e-05     0.0361
+  221                   113.BatchNorm2d.weight      True          128                [128]          1          0
+  222                     113.BatchNorm2d.bias      True          128                [128]          0          0
+  223                        114.Conv2d.weight      True       294912     [256, 128, 3, 3]   1.57e-05      0.017
+  224                   114.BatchNorm2d.weight      True          256                [256]          1          0
+  225                     114.BatchNorm2d.bias      True          256                [256]          0          0
+  226                        115.Conv2d.weight      True        10752      [42, 256, 1, 1]   0.000298     0.0365
+  227                          115.Conv2d.bias      True           42                 [42]      -1.97       1.37
+Model Summary: 228 layers, 6.26494e+07 parameters, 6.26494e+07 gradients
+
+0/117 Sequential - [20, 32, 640, 640]
+1/117 Sequential - [20, 64, 320, 320]
+2/117 Sequential - [20, 32, 320, 320]
+3/117 Sequential - [20, 64, 320, 320]
+4/117 WeightedFeatureFusion - [20, 64, 320, 320]  >> layer -3 [20, 64, 320, 320]
+5/117 Sequential - [20, 128, 160, 160]
+6/117 Sequential - [20, 64, 160, 160]
+7/117 Sequential - [20, 128, 160, 160]
+8/117 WeightedFeatureFusion - [20, 128, 160, 160]  >> layer -3 [20, 128, 160, 160]
+9/117 Sequential - [20, 64, 160, 160]
+10/117 Sequential - [20, 128, 160, 160]
+11/117 WeightedFeatureFusion - [20, 128, 160, 160]  >> layer -3 [20, 128, 160, 160]
+12/117 Sequential - [20, 256, 80, 80]
+13/117 Sequential - [20, 128, 80, 80]
+14/117 Sequential - [20, 256, 80, 80]
+15/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+16/117 Sequential - [20, 128, 80, 80]
+17/117 Sequential - [20, 256, 80, 80]
+18/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+19/117 Sequential - [20, 128, 80, 80]
+20/117 Sequential - [20, 256, 80, 80]
+21/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+22/117 Sequential - [20, 128, 80, 80]
+23/117 Sequential - [20, 256, 80, 80]
+24/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+25/117 Sequential - [20, 128, 80, 80]
+26/117 Sequential - [20, 256, 80, 80]
+27/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+28/117 Sequential - [20, 128, 80, 80]
+29/117 Sequential - [20, 256, 80, 80]
+30/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+31/117 Sequential - [20, 128, 80, 80]
+32/117 Sequential - [20, 256, 80, 80]
+33/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+34/117 Sequential - [20, 128, 80, 80]
+35/117 Sequential - [20, 256, 80, 80]
+36/117 WeightedFeatureFusion - [20, 256, 80, 80]  >> layer -3 [20, 256, 80, 80]
+37/117 Sequential - [20, 512, 40, 40]
+38/117 Sequential - [20, 256, 40, 40]
+39/117 Sequential - [20, 512, 40, 40]
+40/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+41/117 Sequential - [20, 256, 40, 40]
+42/117 Sequential - [20, 512, 40, 40]
+43/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+44/117 Sequential - [20, 256, 40, 40]
+45/117 Sequential - [20, 512, 40, 40]
+46/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+47/117 Sequential - [20, 256, 40, 40]
+48/117 Sequential - [20, 512, 40, 40]
+49/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+50/117 Sequential - [20, 256, 40, 40]
+51/117 Sequential - [20, 512, 40, 40]
+52/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+53/117 Sequential - [20, 256, 40, 40]
+54/117 Sequential - [20, 512, 40, 40]
+55/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+56/117 Sequential - [20, 256, 40, 40]
+57/117 Sequential - [20, 512, 40, 40]
+58/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+59/117 Sequential - [20, 256, 40, 40]
+60/117 Sequential - [20, 512, 40, 40]
+61/117 WeightedFeatureFusion - [20, 512, 40, 40]  >> layer -3 [20, 512, 40, 40]
+62/117 Sequential - [20, 1024, 20, 20]
+63/117 Sequential - [20, 512, 20, 20]
+64/117 Sequential - [20, 1024, 20, 20]
+65/117 WeightedFeatureFusion - [20, 1024, 20, 20]  >> layer -3 [20, 1024, 20, 20]
+66/117 Sequential - [20, 512, 20, 20]
+67/117 Sequential - [20, 1024, 20, 20]
+68/117 WeightedFeatureFusion - [20, 1024, 20, 20]  >> layer -3 [20, 1024, 20, 20]
+69/117 Sequential - [20, 512, 20, 20]
+70/117 Sequential - [20, 1024, 20, 20]
+71/117 WeightedFeatureFusion - [20, 1024, 20, 20]  >> layer -3 [20, 1024, 20, 20]
+72/117 Sequential - [20, 512, 20, 20]
+73/117 Sequential - [20, 1024, 20, 20]
+74/117 WeightedFeatureFusion - [20, 1024, 20, 20]  >> layer -3 [20, 1024, 20, 20]
+75/117 Sequential - [20, 512, 20, 20]
+76/117 Sequential - [20, 1024, 20, 20]
+77/117 Sequential - [20, 512, 20, 20]
+78/117 MaxPool2d - [20, 512, 20, 20]
+79/117 FeatureConcat - [20, 512, 20, 20]  >> layer -2 [20, 512, 20, 20]
+80/117 MaxPool2d - [20, 512, 20, 20]
+81/117 FeatureConcat - [20, 512, 20, 20]  >> layer -4 [20, 512, 20, 20]
+82/117 MaxPool2d - [20, 512, 20, 20]
+83/117 FeatureConcat - [20, 2048, 20, 20]  >> layer -1 [20, 512, 20, 20] + layer -3 [20, 512, 20, 20] + layer -5 [20, 512, 20, 20] + layer -6 [20, 512, 20, 20]
+84/117 Sequential - [20, 512, 20, 20]
+85/117 Sequential - [20, 1024, 20, 20]
+86/117 Sequential - [20, 512, 20, 20]
+87/117 Sequential - [20, 1024, 20, 20]
+88/117 Sequential - [20, 42, 20, 20]
+89/117 YOLOLayer - [20, 42, 20, 20]
+90/117 FeatureConcat - [20, 512, 20, 20]  >> layer -4 [20, 42, 20, 20]
+91/117 Sequential - [20, 256, 20, 20]
+92/117 Upsample - [20, 256, 40, 40]
+93/117 FeatureConcat - [20, 768, 40, 40]  >> layer -1 [20, 256, 40, 40] + layer 55 [20, 256, 40, 40]
+94/117 Sequential - [20, 256, 40, 40]
+95/117 Sequential - [20, 512, 40, 40]
+96/117 Sequential - [20, 256, 40, 40]
+97/117 Sequential - [20, 512, 40, 40]
+98/117 Sequential - [20, 256, 40, 40]
+99/117 Sequential - [20, 512, 40, 40]
+100/117 Sequential - [20, 42, 40, 40]
+101/117 YOLOLayer - [20, 42, 40, 40]
+102/117 FeatureConcat - [20, 256, 40, 40]  >> layer -4 [20, 42, 40, 40]
+103/117 Sequential - [20, 128, 40, 40]
+104/117 Upsample - [20, 128, 80, 80]
+105/117 FeatureConcat - [20, 384, 80, 80]  >> layer -1 [20, 128, 80, 80] + layer 24 [20, 128, 80, 80]
+106/117 Sequential - [20, 128, 80, 80]
+107/117 Sequential - [20, 256, 80, 80]
+108/117 FeatureConcat - [20, 128, 160, 160]  >> layer -100 [20, 256, 80, 80]
+109/117 Sequential - [20, 128, 80, 80]
+110/117 FeatureConcat - [20, 384, 80, 80]  >> layer -1 [20, 128, 80, 80] + layer 107 [20, 128, 80, 80]
+111/117 Sequential - [20, 128, 80, 80]
+112/117 Sequential - [20, 256, 80, 80]
+113/117 Sequential - [20, 128, 80, 80]
+114/117 Sequential - [20, 256, 80, 80]
+115/117 Sequential - [20, 42, 80, 80]
+116/117 YOLOLayer - [20, 42, 80, 80]
