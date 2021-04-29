@@ -17,8 +17,8 @@ import torch
 import torch.nn as nn
 import torchvision
 from tqdm import tqdm
-
 from . import torch_utils  # , google_utils
+
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -30,6 +30,7 @@ cv2.setNumThreads(0)
 
 
 def init_seeds(seed=0):
+
     random.seed(seed)
     np.random.seed(seed)
     torch_utils.init_seeds(seed=seed)
@@ -430,12 +431,21 @@ def box_iou(box1, box2):
 
 
 def wh_iou(wh1, wh2):
+    '''
+    example) Kmeans Anchors
+    :param wh1: GT (18311, 2) = (num of object labels for all images, w & h of each label's bounding box)
+    :param wh2: Anchor sizes (9, 2) = (num of anchors for three prediction layers, w & h size relative to img-size)
+    '''
+
     # Returns the nxm IoU matrix. wh1 is nx2, wh2 is mx2
-    wh1 = wh1[:, None]  # [N,1,2]
-    wh2 = wh2[None]  # [1,M,2]
-    # print('device type: {}, {}'.format(wh1.device, wh2.device))
-    inter = torch.min(wh1, wh2).prod(2)  # [N,M]
-    return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+    wh1 = wh1[:, None]  # [N,2] to [N,1,2]   ex) 18311, 1, 2
+    wh2 = wh2[None]  # [M,2] to [1,M,2]      ex)    1 , 9, 2
+
+    # torch.min(wh1, wh2).shape  # 18311 x 9 x 2
+    inter = torch.min(wh1, wh2).prod(2)  # multiply w and h and return [N, M] shape  (ex) [18311, 9]
+    # wh1.prod(2).shape: [18311, 1] /  wh2.prod(2).shape: [1, 9] /  inter.shape: [18311, 9]
+    # ( wh1.prod(2) + wh2.prod(2) ).shape: [18311, 9]
+    return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter) -- shape: [N, M]
 
 
 class FocalLoss(nn.Module):
@@ -851,7 +861,7 @@ def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
             shutil.copyfile(src=img_file, dst='new/images/' + Path(file).name.replace('txt', 'jpg'))  # copy images
 
 
-def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(640, 640), thr=0.20, gen=1000):
+def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(640, 640), thr=0.20, gen=1000, data_format='fisheye', n_classes=9):
     # Creates kmeans anchors for use in *.cfg files: from utils.utils import *; _ = kmean_anchors()
     # n: number of anchors
     # img_size: (min, max) image size used for multi-scale training (can be same values)
@@ -862,64 +872,84 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(640, 640), thr=0.20, 
     def print_results(k):
         k = k[np.argsort(k.prod(1))]  # sort small to large
         iou = wh_iou(wh, torch.Tensor(k))
-        max_iou = iou.max(1)[0]
+        max_iou = iou.max(1)[0]  # 각 라벨마다 가장 잘 맞는 anchor를 뽑아서 iou 값 냄. max_iou.shape = n(labels)
         bpr, aat = (max_iou > thr).float().mean(), (iou > thr).float().mean() * n  # best possible recall, anch > thr
         print('%.2f iou_thr: %.3f best possible recall, %.2f anchors > thr' % (thr, bpr, aat))
-        print('n=%g, img_size=%s, IoU_all=%.3f/%.3f-mean/best, IoU>thr=%.3f-mean: ' %
+        print('n(Anchors)=%g, img_size=%s, IoU_all=%.3f/%.3f-mean/best, IoU>thr=%.3f-mean: ' %
               (n, img_size, iou.mean(), max_iou.mean(), iou[iou > thr].mean()), end='')
-        for i, x in enumerate(k):
+        for i, x in enumerate(k):  # round: 반올림
             print('%i,%i' % (round(x[0]), round(x[1])), end=',  ' if i < len(k) - 1 else '\n')  # use in *.cfg
         return k
 
     def fitness(k):  # mutation fitness
         iou = wh_iou(wh, torch.Tensor(k))  # iou
-        max_iou = iou.max(1)[0]
+        max_iou = iou.max(1)[0]  # shape: 18311 # pick max iou among the matched ones with 9 anchors
+        # (max_iou > thr).float(): [True, True, ..., False] = [1. , 1. , ... , 0. ]
         return (max_iou * (max_iou > thr).float()).mean()  # product
 
     # Get label wh
     wh = []
-    dataset = LoadImagesAndLabels(path, augment=True, rect=True)
+    dataset = LoadImagesAndLabels(path, augment=True, rect=True, data_format=data_format, n_classes=n_classes)
     nr = 1 if img_size[0] == img_size[1] else 10  # number augmentation repetitions
-    for s, l in zip(dataset.shapes, dataset.labels):
+    for s, l in zip(dataset.shapes, dataset.labels):  # s = [img_w, img_h] , l = [id   x/W   y/H    w/W    h/H]
         wh.append(l[:, 3:5] * (s / s.max()))  # image normalized to letterbox normalized wh
+        # when img_w > img_h --> h/H  changes to h/W
+
     wh = np.concatenate(wh, 0).repeat(nr, axis=0)  # augment 10x
     wh *= np.random.uniform(img_size[0], img_size[1], size=(wh.shape[0], 1))  # normalized to pixels (multi-scale)
     wh = wh[(wh > 2.0).all(1)]  # remove below threshold boxes (< 2 pixels wh)
 
     # Kmeans calculation
     from scipy.cluster.vq import kmeans
-    print('Running kmeans for %g anchors on %g points...' % (n, len(wh)))
+    print('Running kmeans for %g anchors on %g points...' % (n, len(wh)))  # n: num of anchors, len(wh): num of labels
     s = wh.std(0)  # sigmas for whitening
-    k, dist = kmeans(wh / s, n, iter=30)  # points, mean distance
+    k, dist = kmeans(wh / s, n, iter=40)  # 30)  # points, mean distance
     k *= s
     wh = torch.Tensor(wh)
-    k = print_results(k)
+    k = print_results(k)  # initial 9 k points
 
-    # # Plot
-    k, d = [None] * 20, [None] * 20
-    for i in tqdm(range(1, 21)):
-        k[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
-    fig, ax = plt.subplots(1, 2, figsize=(14, 7))
-    ax = ax.ravel()
-    ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
-    fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
-    ax[0].hist(wh[wh[:, 0]<100, 0],400)
-    ax[1].hist(wh[wh[:, 1]<100, 1],400)
-    fig.tight_layout()
-    fig.savefig('wh.png', dpi=200)
+    # Plot -- need to change k to other name
+    # k_p, d = [None] * 20, [None] * 20
+    # for i in tqdm(range(1, 21)):
+    #     k_p[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
+    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+    # ax = ax.ravel()
+    # ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
+    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
+    # ax[0].hist(wh[wh[:, 0]<100, 0],400)
+    # ax[1].hist(wh[wh[:, 1]<100, 1],400)
+    # fig.tight_layout()
+    # fig.savefig('wh.png', dpi=200)
 
     # Evolve
     npr = np.random
     f, sh, mp, s = fitness(k), k.shape, 0.9, 0.1  # fitness, generations, mutation prob, sigma
+    # f: 0.697, sh: (9,2)
     for _ in tqdm(range(gen), desc='Evolving anchors'):
+        # kmeans() 로 나온 anchor 에다가 랜덤한 숫자를 곱해서 약간 새롭게 anchor size 만든 후,
+        # 더 좋은 fitness 나오면 새로운 anchor로 교체 후 다시 반복.
         v = np.ones(sh)
+
         while (v == 1).all():  # mutate until a change occurs (prevent duplicates)
-            v = ((npr.random(sh) < mp) * npr.random() * npr.randn(*sh) * s + 1).clip(0.3, 3.0)
-        kg = (k.copy() * v).clip(min=2.0)
-        fg = fitness(kg)
+            v = ((npr.random(sh) < mp) * npr.random() * npr.randn(*sh) * s + 1).clip(0.3, 3.0)  # clip(min, max): limit the value range as min ~ max
+            # npr.randn(*sh): *sh 사이즈 맞게 mean=0, std=1의 가우시안 표준정규분포 난수를 matrix array 생성.
+            # clip(0.3, 3.0) 경우, 너무 크게 사이즈 변경을 막기 위하여 라고 예상됨.
+        kg = (k.copy() * v).clip(min=2.0)  # new n anchors size  [n,2]
+
+        fg = fitness(kg)  # thr 넘은 max_iou의 평균 값이 가장 높은 걸 선택
         if fg > f:
             f, k = fg, kg.copy()
-            print_results(k)
+            # print_results(k)
+
+    # Plot whitened data and cluster centers in red
+    # import matplotlib.pyplot as plt
+    # plt.xlabel('Width')
+    # plt.ylabel('Height')
+    # plt.title('Anchors from GT bbox')
+    # plt.scatter(wh[:, 0], wh[:, 1], s=1)
+    # plt.scatter(k[:, 0], k[:, 1], s=1, c='r')
+    # plt.show()
+
     k = print_results(k)
 
     return k
