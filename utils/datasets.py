@@ -301,7 +301,9 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             self.label_files = [
                 x.replace('\\images', '\\labels').replace(os.path.splitext(x)[-1], '.txt') for x in self.img_files
             ]
-
+        elif data_format == "woodscape":
+            self.label_files = [x.replace('rgb_images', 'box_2d_annotations').replace('FV_RV_FE_Blank', 'yolo_with_margin/FV_RV_FE').replace(os.path.splitext(x)[-1], '.txt')
+                                for x in self.img_files]
         else:
             print('Wrong dataset. Please check again')
             exit(-1)
