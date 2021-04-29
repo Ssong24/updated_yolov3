@@ -5,7 +5,7 @@ from utils.parse_config import *
 ONNX_EXPORT = False
 
 
-def create_modules(module_defs, img_size, cfg):
+def create_modules(module_defs, img_size, cfg, weight_concat=False):
     # Constructs module list of layer blocks from module configuration in module_defs
     img_size = [img_size] * 2 if isinstance(img_size, int) else img_size  # expand if necessary
     _ = module_defs.pop(0)  # cfg training hyperparams (unused)
@@ -94,7 +94,7 @@ def create_modules(module_defs, img_size, cfg):
             layers = mdef['layers']
             filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = FeatureConcat(layers=layers)
+            modules = FeatureConcat(layers=layers, weight=weight_concat)
 
         elif mdef['type'] == 'shortcut':  # nn.Sequential() placeholder for 'shortcut' layer
             layers = mdef['from']
@@ -313,10 +313,10 @@ class YOLOLayer(nn.Module):
 class Darknet(nn.Module):
     # YOLOv3 object detection model
 
-    def __init__(self, cfg, img_size=(416, 416), verbose=False):
+    def __init__(self, cfg, img_size=(416, 416), verbose=False, weight_concat=False):
         super(Darknet, self).__init__()
         self.module_defs = parse_model_cfg(cfg)
-        self.module_list, self.routs = create_modules(self.module_defs, img_size, cfg)
+        self.module_list, self.routs = create_modules(self.module_defs, img_size, cfg, weight_concat=weight_concat)
         self.yolo_layers = get_yolo_layers(self)
         # torch_utils.initialize_weights(self)
 

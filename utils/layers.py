@@ -26,22 +26,32 @@ class Concat(nn.Module):
 
 
 class FeatureConcat(nn.Module):
-    def __init__(self, layers):
+    def __init__(self, layers, weight=False):
         super(FeatureConcat, self).__init__()
         self.layers = layers  # layer indices
         self.multiple = len(layers) > 1  # multiple layers flag
+        self.weight = weight
+        self.epsilon = 1e-4
+        if weight:
+            self.w = nn.Parameter(torch.ones(len(layers), dtype=torch.float32, device="cuda"), requires_grad=True)
+            self.w_lReLU = nn.LeakyReLU()
 
     def forward(self, x, outputs):
-        # print('self.layers = {} x.shape={} outputs length= {}'.format(self.layers, x.shape, len(outputs)))
+        if self.multiple:
+            if self.weight:
+                new_w = self.w_lReLU(self.w)
+                new_w = new_w / (torch.sum(new_w, dim=0) + self.epsilon)
+                return torch.cat([new_w[i] * outputs[l] for i, l in enumerate(self.layers)], 1)
+            else:
+                return torch.cat([outputs[i] for i in self.layers], 1)
+        else:
+            return outputs[self.layers[0]]
 
-        # print('self.multiple: ', self.multiple)
-        # if self.multiple:
-        #     for i in self.layers:
-        #         print('{} {}'.format(i,outputs[i].shape))
-        return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
+
+        # return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
 
 
-class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+class WeightedFeatureFusion(nn.Module):  # Residual Layer # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
     def __init__(self, layers, weight=False):
         super(WeightedFeatureFusion, self).__init__()
         self.layers = layers  # layer indices
@@ -49,6 +59,7 @@ class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers http
         self.n = len(layers) + 1  # number of layers
         if weight:
             self.w = nn.Parameter(torch.zeros(self.n), requires_grad=True)  # layer weights
+
 
     def forward(self, x, outputs):
         # Weights
