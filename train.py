@@ -20,14 +20,14 @@ except:
 wdir, last, best, results_file = '', '','',''
 
 # Hyperparameters
-hyp = {'giou': 1.77, #3.54,  # giou loss gain
-       'cls':  14.96, #37.4,  # cls loss gain
+hyp = {'giou': 1.77,  # giou loss gain
+       'cls':  14.96,  # cls loss gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
-       'obj': 12.86,  # 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
+       'obj':  12.86,  # obj loss gain (*=img_size/320 if img_size != 320)
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.00025,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-       'lrf': 0.12,  # final learning rate (with cos scheduler)
+       'lr0': 0.00019,  # 5, #0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+       'lrf': 0.0005,  # final learning rate (with cos scheduler)
        'momentum': 0.843,  # SGD momentum
        'weight_decay': 0.00036,  # optimizer weight decay
        'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
@@ -35,10 +35,10 @@ hyp = {'giou': 1.77, #3.54,  # giou loss gain
        'hsv_s': 0.664,  # image HSV-Saturation augmentation (fraction)
        'hsv_v': 0.464,  # image HSV-Value augmentation (fraction)
        ## for quick test, set as zero
-       'degrees': 0.373 ,#* 0,  # image rotation (+/- deg)
-       'translate': 0.245,# * 0,  # image translation (+/- fraction)
-       'scale':  0.898 ,#* 0,  # image scale (+/- gain)
-       'shear': 0.602 }# * 0}  # image shear (+/- deg)
+       'degrees': 0.373,  #* 0,  # image rotation (+/- deg)
+       'translate': 0.245,  # * 0,  # image translation (+/- fraction)
+       'scale':  0.898,  #* 0,  # image scale (+/- gain)
+       'shear': 0.602}  # * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt (optional)
 # f = glob.glob('hyp*.txt')
@@ -62,6 +62,10 @@ def train(hyp):
     weights = opt.weights  # initial training weights
     imgsz_min, imgsz_max, imgsz_test = opt.img_size  # img sizes (min, max, test)
     verbose = opt.verbose
+    autoanchor = opt.autoanchor
+    data_format = opt.data_format
+    n_classes = opt.n_classes
+
 
     # Image Sizes
     gs = 32  # (pixels) grid size
@@ -93,7 +97,18 @@ def train(hyp):
         f.write('%10.4s' * 8 %('P', 'R', 'mAP@0.5', 'F1', 'GIoU', 'obj', 'cls', 'size') + '\n')
 
     # Initialize model
-    model = Darknet(cfg,verbose=verbose).to(device)
+    model = Darknet(cfg,verbose=verbose, weight_concat=opt.weight_concat).to(device)
+
+    # Check anchor size when autoanchor is True
+    if autoanchor is True:
+        num_anchors = 9
+        new_anchors = kmean_anchors(train_path, n=num_anchors,img_size=(img_size,img_size), thr=0.35, gen=1000,
+                                    data_format=data_format, n_classes=n_classes)
+        yolo_index = 0
+        for module in model.module_list:
+            if isinstance(module, YOLOLayer):
+                module.anchors = torch.Tensor(new_anchors[6 - yolo_index*3: 9 - yolo_index*3 ])
+                yolo_index += 1
 
     # Optimizer
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
@@ -178,15 +193,15 @@ def train(hyp):
     # https://discuss.pytorch.org/t/a-problem-occured-when-resuming-an-optimizer/28822
 
     # Plot lr schedule
-    y = []
-    for _ in range(epochs):
-        scheduler.step()
-        y.append(optimizer.param_groups[0]['lr'])
-    plt.plot(y, '.-', label='LambdaLR')
-    plt.xlabel('epoch')
-    plt.ylabel('LR')
-    plt.tight_layout()
-    plt.savefig(opt.output +os.sep+'LR.png', dpi=300)
+    # y = []
+    # for _ in range(epochs):
+    #     scheduler.step()
+    #     y.append(optimizer.param_groups[0]['lr'])
+    # plt.plot(y, '.-', label='LambdaLR')
+    # plt.xlabel('epoch')
+    # plt.ylabel('LR')
+    # plt.tight_layout()
+    # plt.savefig(opt.output +os.sep+'LR.png', dpi=300)
 
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
@@ -204,7 +219,7 @@ def train(hyp):
                                   rect=opt.rect,  # rectangular training
                                   cache_images=opt.cache_images,
                                   single_cls=opt.single_cls,
-                                  data_format=opt.data_format,
+                                  data_format=data_format,
                                   n_classes=opt.n_classes)
 
     # Dataloader
@@ -223,7 +238,7 @@ def train(hyp):
                                                                  rect=True,
                                                                  cache_images=opt.cache_images,
                                                                  single_cls=opt.single_cls,
-                                                                 data_format=opt.data_format,
+                                                                 data_format=data_format,
                                                                  n_classes=opt.n_classes),
                                              batch_size=batch_size,
                                              num_workers=nw,
@@ -249,7 +264,6 @@ def train(hyp):
     print('Image sizes %g - %g train, %g test' % (imgsz_min, imgsz_max, imgsz_test))
     print('Using %g dataloader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
-
 
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
@@ -405,7 +419,7 @@ def train(hyp):
                 os.system('gsutil cp %s gs://%s/weights' % (f2_new, opt.bucket)) if opt.bucket and ispt else None  # upload
 
     if not opt.evolve:
-        plot_results(output=opt.output)  # save as results.png
+        plot_results(output=opt.output)  # save as results.png -- to Save, remove lsize.
     print('%g epochs completed in %.3f hours.\n' % (epoch - start_epoch + 1, (time.time() - t0) / 3600))
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
@@ -419,8 +433,8 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
     parser.add_argument('--names', default='', help='renames results.txt to results_name.txt if supplied')
     ### Song's edited ###
-    parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
-    parser.add_argument('--n-classes', type=int, help='number of classes')
+    parser.add_argument('--data-format', type=str, default='fisheye', help='etri | kitti | cityscape | coco')
+    parser.add_argument('--n-classes', type=int, default=9, help='number of classes')
     #####################
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -438,15 +452,17 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='input/pretrained_weights/darknet53.conv.74', help='initial weights path')
     parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--freeze-layers', action='store_true', help='Freeze non-output layers')
     # Song's argument
+    parser.add_argument('--weight-concat', action='store_true', help='Enable weighted Feature Fusion')
     parser.add_argument('--output', type=str, default='test', help='result folder')
     parser.add_argument('--noBoard', action='store_true', help='No tensoboard.')
     parser.add_argument('--verbose', action='store_true', help='Display the architecture of the model')
     parser.add_argument('--lr0', type=float, help='Initial learning rate')
+    parser.add_argument('--autoanchor', action='store_true', help='Enable autoanchor check')
     opt = parser.parse_args()
 
     check_git_status()
@@ -461,7 +477,7 @@ if __name__ == '__main__':
     print(str_opt)
 
     # update hyp['giou'], hyp['cls'], hyp['obj'] by data format
-    # if opt.data_format == 'cityscape' or opt.data_format == 'fisheye': #or opt.data_format == 'kitti':
+    # if opt.data_format == 'cityscape':# or opt.data_format == 'fisheye': #or opt.data_format == 'kitti':
     #     hyp['giou'] /= 2.0
     #     hyp['cls'] /= 2.0
     #     hyp['obj'] /= 2.0
