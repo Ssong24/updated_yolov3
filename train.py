@@ -98,7 +98,7 @@ def train(hyp):
 
     # Initialize model
     model = Darknet(cfg,verbose=verbose, weight_concat=opt.weight_concat).to(device)
-
+    input('Model verbose On')
     # Check anchor size when autoanchor is True
     if autoanchor is True:
         num_anchors = 9
@@ -428,7 +428,6 @@ def train(hyp):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
     parser.add_argument('--names', default='', help='renames results.txt to results_name.txt if supplied')
@@ -463,6 +462,21 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', action='store_true', help='Display the architecture of the model')
     parser.add_argument('--lr0', type=float, help='Initial learning rate')
     parser.add_argument('--autoanchor', action='store_true', help='Enable autoanchor check')
+    parser.add_argument('--val-loss', action='store_true', help= 'True: Calculate validation loss | False: Calculate Right P,R,F1,mAP')
+    parser.add_argument('--giou', type=float, default=1.77,help='giou loss gain')
+    parser.add_argument('--cls', type=float, default=14.96, help='cls loss gain')
+    parser.add_argument('--obj', type=float, default=12.86, help='obj loss gain')
+    parser.add_argument('--momentum', type=float, default=0.937, help='momentum')
+    parser.add_argument('--wdecay', type=float, default=0.0005, help='weight decay rate')
+    parser.add_argument('--hsv-h', type=float, default=0.0138, help='hsv h rate')
+    parser.add_argument('--hsv-s', type=float, default=0.678, help='hsv s rate')
+    parser.add_argument('--hsv-v', type=float, default=0.36, help='hsv v rate')
+    parser.add_argument('--degrees', type=float, default=1.98, help='augment degree')
+    parser.add_argument('--translate', type=float, default=0.05, help='augment translate')
+    parser.add_argument('--scale', type=float, default=0.05, help='augment scaling')
+    parser.add_argument('--shear', type=float, default=0.641, help='aiugment shearing')
+
+
     opt = parser.parse_args()
 
     check_git_status()
@@ -483,6 +497,14 @@ if __name__ == '__main__':
     #     hyp['obj'] /= 2.0
     if opt.lr0 is not None:
         hyp['lr0'] = opt.lr0
+
+    hyp['lr0'] = opt.lr0
+    hyp['giou'] = opt.giou
+    hyp['cls'] = opt.cls
+    hyp['obj'] = opt.obj
+    hyp['momentum'], hyp['weight_decay'] = opt.momentum, opt.wdecay
+    hyp['hsv_h'], hyp['hsv_s'], hyp['hsv_v']= opt.hsv_h, opt.hsv_s, opt.hsv_v
+    hyp['degrees'], hyp['translate'], hyp['scale'], hyp['shear'] = opt.degrees, opt.translate, opt.scale, opt.shear
 
     str_hyp = '-'*13 + ' Hyper-parameter ' + '-'*14 +  '\n' +\
               str(hyp).replace('{', ' ').replace('}', '').replace(',',',\n') +\

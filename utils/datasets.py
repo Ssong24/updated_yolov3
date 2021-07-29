@@ -199,15 +199,22 @@ class LoadStreams:  # multiple IP or RTSP cameras
         for i, s in enumerate(sources):
             # Start the thread to read frames from the video stream
             print('%g/%g: %s... ' % (i + 1, n, s), end='')
+
             cap = cv2.VideoCapture(0 if s == '0' else s)
             assert cap.isOpened(), 'Failed to open %s' % s
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS) % 100
-            _, self.imgs[i] = cap.read()  # guarantee first frame
-            thread = Thread(target=self.update, args=([i, cap]), daemon=True)
-            print(' success (%gx%g at %.2f FPS).' % (w, h, fps))
-            thread.start()
+            if s == '0':
+                img_check, self.imgs[i] = cap.read()  # guarantee first frame
+
+                thread = Thread(target=self.update, args=([i, cap]), daemon=True)
+                print(' success (%gx%g at %.2f FPS).' % (w, h, fps))
+                thread.start()
+            else:
+                self.imgs[i] = cv2.imread(s)
+                h, w = self.imgs[i][:2]
+                print(' success (%gx%g) ' %(w,h))
         print('')  # newline
 
         # check for common shapes
@@ -288,21 +295,22 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.mosaic = self.augment and not self.rect  # load 4 images at a time into a mosaic (only during training)
 
         # Define labels
-
         if data_format == "cityscape":
             self.label_files = [x.replace('\\leftImg8bit', '\\gtFine').replace('leftImg8bit.', 'gtFine_polygons.').replace(os.path.splitext(x)[-1], '.txt')
                             for x in self.img_files]
-        elif data_format =='kitti':
+
+        elif data_format == "kitti":
             self.label_files = [
                 x.replace('\\data_object_image_2', '\\data_object_label_2').replace('\\image_2', '\\label_2_yolo_'+ str(n_classes)+ 'c')
                     .replace(os.path.splitext(x)[-1], '.txt')
                 for x in self.img_files]
+
         elif data_format == "fisheye":
             self.label_files = [
                 x.replace('\\images', '\\labels').replace(os.path.splitext(x)[-1], '.txt') for x in self.img_files
             ]
         elif data_format == "woodscape":
-            self.label_files = [x.replace('rgb_images', 'box_2d_annotations').replace('FV_RV_FE_Blank', 'yolo_with_margin/FV_RV_FE').replace(os.path.splitext(x)[-1], '.txt')
+            self.label_files = [x.replace('rgb_images', 'box_2d_annotations').replace('FV_RV_Blank', 'yolo_with_margin/FV_RV').replace(os.path.splitext(x)[-1], '.txt')
                                 for x in self.img_files]
         else:
             print('Wrong dataset. Please check again')
@@ -638,6 +646,7 @@ def load_mosaic(self, index):
 
 def letterbox(img, new_shape=(416, 416), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
+
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)

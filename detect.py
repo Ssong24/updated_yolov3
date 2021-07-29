@@ -8,17 +8,32 @@ from utils.utils import *
 def detect(save_img=False):
     imgsz = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
-    webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
+    autoanchor, data, data_format, n_classes = opt.autoanchor, opt.data, opt.data_format, opt.n_classes
+    webcam = source == '0' or source.startswith('rtsp') or source.startswith('http')  or source.endswith('.txt')
 
-    # Initialize
-    device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
-    if os.path.exists(out):
-        shutil.rmtree(out)  # delete output folder
-    os.makedirs(out)  # make new output folder
+    # Initialize  -- please check!! torch_utils code are changed!!
+    device, _ = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
+
+    # if os.path.exists(out):
+    #     shutil.rmtree(out)  # delete output folder
+    if not os.path.exists(out):
+        os.makedirs(out)  # make new output folder
 
     # Initialize model
     model = Darknet(opt.cfg, imgsz)
 
+    # autoanchor check
+    if autoanchor:
+        num_anchors = 9
+        data_dict = parse_data_cfg(data)
+        train_path = data_dict['train']
+        new_anchors = kmean_anchors(train_path, n=num_anchors, img_size=(imgsz, imgsz), thr=0.35, gen=1000,
+                                    data_format=data_format, n_classes=n_classes)
+        yolo_index = 0
+        for module in model.module_list:
+            if isinstance(module, YOLOLayer):
+                module.anchors = torch.Tensor(new_anchors[6 - yolo_index * 3: 9 - yolo_index * 3])
+                yolo_index += 1
     # Load weights
     attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
@@ -71,13 +86,21 @@ def detect(save_img=False):
 
     # Get names and colors
     names = load_classes(opt.names)
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+    colors = []
+    random.seed(10)
+    for _ in range(len(names)):
+        one_color = []
+        for _ in range(3):
+            one_color.append(random.randint(0,255))
+        colors.append(one_color)
+    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Run inference
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img.float()) if device.type != 'cpu' else None  # run once
     for path, img, im0s, vid_cap in dataset:
+        # print('path: ', path)
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -129,7 +152,7 @@ def detect(save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=opt.thick)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
@@ -183,10 +206,15 @@ if __name__ == '__main__':
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
+    parser.add_argument('--autoanchor', action='store_true', help='Enable autoanchor check')
+    parser.add_argument('--data', type=str, default='data/samples', help='.data')
+    parser.add_argument('--data-format', type=str, default='cityscape', help='etri | kitti | cityscape | coco')
+    parser.add_argument('--n-classes', type=int, default=8, help='number of classes')
+    parser.add_argument('--thick', type=int, default=1, help='line thickness for plotting one box')
     opt = parser.parse_args()
     opt.cfg = check_file(opt.cfg)  # check file
     opt.names = check_file(opt.names)  # check file
     print(opt)
 
     with torch.no_grad():
-        detect()
+        detect(True)

@@ -350,7 +350,7 @@ class Darknet(nn.Module):
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
         yolo_out, out = [], []
-        # verbose=True
+        #verbose=True
         if verbose:
             print('0', x.shape)
             str = ''

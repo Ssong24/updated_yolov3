@@ -35,14 +35,12 @@ def init_seeds(seed=0):
     np.random.seed(seed)
     torch_utils.init_seeds(seed=seed)
 
-
 def check_git_status():
     if platform in ['linux', 'darwin']:
         # Suggest 'git pull' if repo is out of date
         s = subprocess.check_output('if [ -d .git ]; then git fetch && git status -uno; fi', shell=True).decode('utf-8')
         if 'Your branch is behind' in s:
             print(s[s.find('Your branch is behind'):s.find('\n\n')] + '\n')
-
 
 def check_file(file):
     # Searches for file if not found locally
@@ -52,7 +50,6 @@ def check_file(file):
         files = glob.glob('./**/' + file, recursive=True)  # find file
         assert len(files), 'File Not Found: %s' % file  # assert file was found
         return files[0]  # return first file if multiple found
-
 
 def load_classes(path):
     # Loads *.names file at 'path'
@@ -144,71 +141,6 @@ def clip_coords(boxes, img_shape):
     boxes[:, 2].clamp_(0, img_shape[1])  # x2
     boxes[:, 3].clamp_(0, img_shape[0])  # y2
 
-# def ap_per_class_for_small(tp, conf, pred_cls, target_cls):
-#     """ Compute the average precision, given the recall and precision curves.
-#     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
-#     # Arguments
-#         tp:    True positives (nparray, nx1 or nx10).
-#         conf:  Objectness value from 0-1 (nparray).
-#         pred_cls: Predicted object classes (nparray).
-#         target_cls: True object classes (nparray).
-#     # Returns
-#         The average precision as computed in py-faster-rcnn.
-#     """
-#
-#     # Sort by objectness
-#     i = np.argsort(-conf)
-#     tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]
-#
-#     # Find unique classes
-#     unique_classes = np.unique(target_cls)
-#
-#     # Create Precision-Recall curve and compute AP for each class
-#     pr_score = 0.1  # score to evaluate P and R https://github.com/ultralytics/yolov3/issues/898
-#     s = [unique_classes.shape[0], tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
-#     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
-#
-#     for ci, c in enumerate(unique_classes):
-#         i = pred_cls == c
-#         n_gt = (target_cls == c).sum()  # Number of ground truth objects
-#         n_p = i.sum()  # Number of predicted objects
-#
-#         if n_p == 0 or n_gt == 0:
-#             continue
-#         else:
-#             # Accumulate FPs and TPs
-#             fpc = (1 - tp[i]).cumsum(0)
-#             tpc = tp[i].cumsum(0)
-#
-#             # Recall
-#             recall = tpc / (n_gt + 1e-16)  # recall curve
-#             r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
-#
-#             # Precision
-#             precision = tpc / (tpc + fpc)  # precision curve
-#             p[ci] = np.interp(-pr_score, -conf[i], precision[:, 0])  # p at pr_score
-#
-#             # AP from recall-precision curve
-#             for j in range(tp.shape[1]):
-#                 ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
-#
-#             # Plot -- I uncomment this.
-#             fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-#             ax.plot(recall, precision)
-#             ax.set_xlabel('Recall')
-#             ax.set_ylabel('Precision')
-#             ax.set_xlim(0, 1.01)
-#             ax.set_ylim(0, 1.01)
-#             fig.tight_layout()
-#             fig.savefig('PR_curve.png', dpi=300)
-#
-#     # Compute F1 score (harmonic mean of precision and recall)
-#     f1 = 2 * p * r / (p + r + 1e-16)
-#
-#     return p, r, ap, f1, unique_classes.astype('int32')
-
-
-
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """ Compute the average precision, given the recall and precision curves.
@@ -243,7 +175,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
             continue
         else:
             # Accumulate FPs and TPs
-            fpc = (1 - tp[i]).cumsum(0)
+            fpc = (1 - tp[i]).cumsum(0)        # [0, 0, .... 18245, 18246, 18247]
             tpc = tp[i].cumsum(0)
 
             # Recall
@@ -491,8 +423,7 @@ def compute_loss(p, targets, model, loss_size=False):  # predictions, targets, m
 
     # targets related to predicted anchors whose iou is over hyp['iou_t']
     tcls, tbox, indices, anchors = build_targets(p, targets, model)
-    # print('tcls: {}\ntbox: {}\n anchors: {}\n'.format(tcls, tbox, anchors))
-    # print('indices: ', indices)
+
     h = model.hyp  # hyperparameters
     red = 'mean'  # Loss reduction (sum or mean)
 
@@ -512,34 +443,19 @@ def compute_loss(p, targets, model, loss_size=False):  # predictions, targets, m
     nt = 0  # targets
     for i, pi in enumerate(p):  # layer index, layer predictions
         b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx (gridy and gridx loc point?)
-        # print('[{}] b, a, gj, gi: {}, {}, {}, {}'.format(i, b, a, gj, gi))
-        # print('indices[{}]: {}'.format(i, indices[i]))
         tobj = torch.zeros_like(pi[..., 0])  # target obj
-        # print('tobj.shape: {}'.format(tobj.shape))
-
         nb = b.shape[0]  # number of targets
-        # print('b.shape: {}'.format(b.shape))
-        # print('nb: ',     nb)
+
         if nb:
             nt += nb  # cumulative targets
-            # print('pi.shape: ',pi.shape)
-            
             ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
-            # print('ps.shape: ', ps.shape)
-            # print('ps: ', ps)
 
             # lbox(xywh) related to GIoU
             pxy = ps[:, :2].sigmoid()  # Why Sigmoid? for making positive num? # torch.float16 -- do sth with sigmoid            
-            # print('ps[:,:2]={} \npxy={}\nps[:,:2].sigmoid: {}'.format(ps[:,:2], pxy, ps[:,:2].sigmoid()))  
-            # print('anchors[{}]: {}'.format(i, anchors[i]))
             pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
-            # print('ps[:, 2:4].exp()= {}\nps[:,2:4]*anchors[i]= {}'.format( ps[:, 2:4].exp(), ps[:, 2:4].exp()*anchors[i]))
             pbox = torch.cat((pxy, pwh), 1)  # predicted box
             giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)  # giou(prediction, target)
             lbox += (1.0 - giou).sum() if red == 'sum' else (1.0 - giou).mean()  # giou loss
-
-            # print('tbox[{}]={}'.format(i, tbox[i]))
-            # print('pxy: {}\npwh: {}\npbox: {}\ngiou: {}\nlbox: {}'.format(pxy, pwh, pbox, giou, lbox))
 
             # lsize for small object detection
             if loss_size:
@@ -556,23 +472,13 @@ def compute_loss(p, targets, model, loss_size=False):  # predictions, targets, m
             if model.nc > 1:  # cls loss (only if multiple classes)
                 t = torch.full_like(ps[:, 5:], cn)  # targets
                 t[range(nb), tcls[i]] = cp  # 1.0
-                # print('t.shape: {}'.format(t.shape))
-                # print('t[0, tcls[{}]] = {}'.format(i, t[0, tcls[i]]))
-                # print('t: {}'.format(t))
-                # print('t.shape:{} \nt: {}'.format(t.shape, t))
-                # print('ps[:,5:].shape: {}\nps[:,5:]: {} '.format( ps[:, 5:].shape, ps[:, 5:]))
                 lcls += BCEcls(ps[:, 5:], t)  # BCE
                 # print('lcls: ', lcls)
 
             # Append targets to text file
             # with open('targets.txt', 'a') as file:
             #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
-        
 
-        # print('pi[...,4].shape: {} \ntobj.shape: {}'.format(pi[...,4].shape, tobj.shape))
-        # for a_i in range(a.shape[0]):
-        #     print('tobj[0,{},{},{}] = {}'.format(a[a_i], gj[a_i], gi[a_i], tobj[0,a[a_i], gj[a_i], gi[a_i]]))
-        # print('tobj[0, a[0], gj[0], gi[0]]: {}, {}, {}, {}'.format(tobj[0, a[0], gj[0], gi[0]]))
         # lobj: loss of Objectness score
         lobj += BCEobj(pi[..., 4], tobj)  # obj loss
         # print('lobj: ', lobj)
@@ -583,13 +489,12 @@ def compute_loss(p, targets, model, loss_size=False):  # predictions, targets, m
     lcls *= h['cls']
     if loss_size == False:
         lsize = torch.zeros(1).to(0)
-    # print('[After multiplied, lbox, lobj, lcls]: {}, {}, {}'.format(lbox, lobj, lcls))
+
     if red == 'sum':
         bs = tobj.shape[0]  # batch size
         g = 3.0  # loss gain
         lobj *= g / bs
-        # print('lobj(*={}/{}) = {}'.format(g, bs, lobj))
-        # print('nt: ', nt)
+
         if nt:
             lcls *= g / nt / model.nc
             lbox *= g / nt
@@ -597,11 +502,8 @@ def compute_loss(p, targets, model, loss_size=False):  # predictions, targets, m
             if loss_size:
                 lsize *= 2
                 lsize *= g / nt
-            
-            # print('lcls(*= {} / {} / {}) = {}'.format(g, nt, model.nc, lcls))
-            # print('lbox(*= {}/ {}) = {}'.format(g, nt, lbox))
-    # print('\n')
-    # input('hello!')
+
+
     loss = lbox + lobj + lcls + lsize
     return loss, torch.cat((lbox, lobj, lcls, lsize, loss)).detach()
 
@@ -946,10 +848,10 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(640, 640), thr=0.20, 
     # plt.xlabel('Width')
     # plt.ylabel('Height')
     # plt.title('Anchors from GT bbox')
-    # plt.scatter(wh[:, 0], wh[:, 1], s=1)
-    # plt.scatter(k[:, 0], k[:, 1], s=1, c='r')
+    # plt.scatter(wh[:, 0], wh[:, 1], s=2)
+    # plt.scatter(k[:, 0], k[:, 1], s=3, c='r')
     # plt.show()
-
+    # input()
     k = print_results(k)
 
     return k

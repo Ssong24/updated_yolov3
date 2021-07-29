@@ -27,7 +27,8 @@ def test(cfg,
          n_classes=8,
          gt_json='kitti_original_gt.json',
          save_result =False,
-         projection=''):
+         projection='',
+         autoanchor=False):
 
     # Initialize/load model and set device
     if model is None:
@@ -42,6 +43,19 @@ def test(cfg,
         # Initialize model
         model = Darknet(cfg, imgsz)
 
+        # anchor check
+        if autoanchor is True:
+            num_anchors = 9
+            data_dict = parse_data_cfg(data)
+            train_path = data_dict['train']
+            new_anchors = kmean_anchors(train_path, n=num_anchors, img_size=(imgsz, imgsz), thr=0.35, gen=1000,
+                                        data_format=data_format, n_classes=n_classes)
+            yolo_index = 0
+            for module in model.module_list:
+                if isinstance(module, YOLOLayer):
+                    module.anchors = torch.Tensor(new_anchors[6 - yolo_index * 3: 9 - yolo_index * 3])
+                    yolo_index += 1
+
         # Load weights
         attempt_download(weights)
         if weights.endswith('.pt'):  # pytorch format
@@ -55,6 +69,7 @@ def test(cfg,
 
         if device.type != 'cpu' and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
+
     else:  # called by train.py
         is_training = True
         device = next(model.parameters()).device  # get model device
@@ -73,8 +88,6 @@ def test(cfg,
     # Dataloader -- test mode
     if dataloader is None:
         path = data['test']
-
-
         dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls, pad=0.5
                                       , data_format=data_format, n_classes=n_classes)
         batch_size = min(batch_size, len(dataset))
@@ -128,8 +141,6 @@ def test(cfg,
                     stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
                 continue
 
-
-
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
 
@@ -141,8 +152,10 @@ def test(cfg,
                 elif data_format == 'cityscape':
                     image_id = get_cityscape_img_id(paths[si])
                 elif data_format == 'fisheye':
-
                     image_id = int(Path(paths[si]).stem.split('-')[1] + Path(paths[si]).stem.split('-')[2])
+                elif data_format == 'woodscape':
+                    image_id = int(Path(paths[si]).stem.split('_')[0])
+
                 box = pred[:, :4].clone()  # xyxy
 
                 scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
@@ -187,11 +200,11 @@ def test(cfg,
             stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
         # Plot images
-        if batch_i < 1:
-            f = 'test_batch%g_gt.jpg' % batch_i  # filename
-            plot_images(imgs, targets, paths=paths, names=names, fname=f)  # ground truth
-            f = 'test_batch%g_pred.jpg' % batch_i
-            plot_images(imgs, output_to_target(output, width, height), paths=paths, names=names, fname=f)  # predictions
+        # if batch_i < 1:
+        #     f = 'test_batch%g_gt.jpg' % batch_i  # filename
+        #     plot_images(imgs, targets, paths=paths, names=names, fname=f)  # ground truth
+        #     f = 'test_batch%g_pred.jpg' % batch_i
+        #     plot_images(imgs, output_to_target(output, width, height), paths=paths, names=names, fname=f)  # predictions
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
@@ -199,6 +212,8 @@ def test(cfg,
         p, r, ap, f1, ap_class = ap_per_class(*stats)
         if niou > 1:  # What is this?
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
+        print('ap: ', ap)
+        print('ap[:, 0]', ap[:,0])
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
 
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
@@ -220,7 +235,7 @@ def test(cfg,
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Save JSON
-    if save_json and map and len(jdict):
+    if save_json and len(jdict) and map:
         print('\nCOCO mAP with pycocotools...')
         if data_format == 'kitti':
             imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
@@ -228,11 +243,12 @@ def test(cfg,
             imgIds = [get_cityscape_img_id(x) for x in dataloader.dataset.img_files]
         elif data_format == "fisheye":
             imgIds = [int(Path(x).stem.split('-')[1] + Path(x).stem.split('-')[2].split('_')[0]) for x in dataloader.dataset.img_files]
+        elif data_format == "woodscape":
+            imgIds = [int(Path(x).stem.split('_')[0]) for x in dataloader.dataset.img_files]
         else:
             print('Please set the dataset')
             exit(-1)
-        # else:
-        #     imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        
         json_folder = 'results/' + data_format + '/' + projection + weights.split('\\')[-3]
         json_file = json_folder + '/results.json'
 
@@ -281,6 +297,11 @@ def test(cfg,
                 'truck': 10, 'bus': 11
             }
 
+            dic_col_woodscape = {
+                'Model': 1, 'all': 2,
+                'vehicle': 3, 'person': 4, 'rider': 5, 'bicycle': 6, 'motorcycle': 7, 'traffic_light': 8, 'traffic_sign': 9
+            }
+
             if data_format =='cityscape':
                 excel_name = 'results/cs_val_result.xlsx'
                 dic_col_dataset = dic_col_cityscape
@@ -290,6 +311,10 @@ def test(cfg,
             elif data_format == 'fisheye':
                 excel_name = 'results/fisheye_test_result.xlsx'
                 dic_col_dataset = dic_col_fisheye
+            elif data_format == "woodscape":
+                excel_name = 'results/woodscape_test_result.xlsx'
+                dic_col_dataset = dic_col_woodscape
+
             f_excel = openpyxl.load_workbook(excel_name)
 
             # Automatically find column number
@@ -319,7 +344,7 @@ def test(cfg,
             write_result_in_excel(f_excel, "class-Precision", start_row, dic_col_dataset, True, names, mp, p)
             write_result_in_excel(f_excel, "class-Recall", start_row, dic_col_dataset, True, names, mr, r)
             write_result_in_excel(f_excel, 'cocoapi', start_row, dic_col_cocoapi, is_class_result=False, coco_values=cocoEval.stats)
-            # write_result_in_excel(f_excel, 'Targets', start_row, dic_col_dataset, True, names, all_value=nt.sum(), class_values=np.reshape(nt, (nc, -1)))
+            write_result_in_excel(f_excel, 'Targets', start_row, dic_col_dataset, True, names, all_value=nt.sum(), class_values=np.reshape(nt, (nc, -1)))
 
             # Update the value of that file excel
             f_excel.save(excel_name)
@@ -344,12 +369,13 @@ def write_result_in_excel(file_excel, worksheet_name, start_row, dir_col,
         for i, stat in enumerate(coco_values):
             file_excel[worksheet_name].cell(row=start_row, column=i+2).value = stat
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2014.data', help='*.data path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='weights path')
-    parser.add_argument('--batch-size', type=int, default=16, help='size of each image batch')
+    parser.add_argument('--weights', type=str, default='input/pretrained_weights/darknet53.conv.74', help='weights path')
+    parser.add_argument('--batch-size', type=int, default=20, help='size of each image batch')
     parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
@@ -364,6 +390,7 @@ if __name__ == '__main__':
     parser.add_argument('--gt-json', type=str, default='kitti_original.json', help='Name of grundtruth label with coco format ')
     parser.add_argument('--save-result', action='store_true', help='save test result in excel file.')
     parser.add_argument('--projection', type=str, default='', help='fe/ | equi/ | songCylin/')
+    parser.add_argument('--autoanchor', action='store_true', help='Enable autoanchor check')
     opt = parser.parse_args()
     opt.save_json = opt.save_json or any([x in opt.data for x in ['coco.data', 'coco2014.data', 'coco2017.data']])
     opt.cfg = check_file(opt.cfg)  # check file
@@ -387,7 +414,8 @@ if __name__ == '__main__':
              n_classes=opt.n_classes,
              gt_json=opt.gt_json,
              save_result=opt.save_result,
-             projection=opt.projection)
+             projection=opt.projection,
+             autoanchor=opt.autoanchor)
 
     elif opt.task == 'benchmark':  # mAPs at 256-640 at conf 0.5 and 0.7
         y = []
