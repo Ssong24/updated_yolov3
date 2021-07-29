@@ -1,0 +1,61 @@
+
+dtScores.shape:  (22500,)
+[catId: 0, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 4143.0, 18357.0
+[AP75] n(tp), n(fp): 1991.0, 20509.0
+[AP95] n(tp), n(fp): 28.0, 22472.0
+
+
+dtScores.shape:  (930,)
+[catId: 1, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 91.0, 839.0
+[AP75] n(tp), n(fp): 34.0, 896.0
+[AP95] n(tp), n(fp): 0.0, 930.0
+
+
+dtScores.shape:  (260,)
+[catId: 2, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 20.0, 240.0
+[AP75] n(tp), n(fp): 12.0, 248.0
+[AP95] n(tp), n(fp): 0.0, 260.0
+
+
+dtScores.shape:  (1052,)
+[catId: 3, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 125.0, 927.0
+[AP75] n(tp), n(fp): 69.0, 983.0
+[AP95] n(tp), n(fp): 0.0, 1052.0
+
+
+dtScores.shape:  (2015,)
+[catId: 4, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 231.0, 1784.0
+[AP75] n(tp), n(fp): 156.0, 1859.0
+[AP95] n(tp), n(fp): 6.0, 2009.0
+
+dtScores.shape:  (9880,)
+[catId: 5, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 1906.0, 7974.0
+[AP75] n(tp), n(fp): 1344.0, 8536.0
+[AP95] n(tp), n(fp): 101.0, 9779.0
+
+
+dtScores.shape:  (777,)
+[catId: 6, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 78.0, 699.0
+[AP75] n(tp), n(fp): 55.0, 722.0
+[AP95] n(tp), n(fp): 1.0, 776.0
+
+
+dtScores.shape:  (800,)
+[catId: 7, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 71.0, 729.0
+[AP75] n(tp), n(fp): 52.0, 748.0
+[AP95] n(tp), n(fp): 2.0, 798.0
+
+
+dtScores.shape:  (539,)
+[catId: 8, a0:0, maxDet: 100]
+[AP50] n(tp), n(fp): 22.0, 517.0
+[AP75] n(tp), n(fp): 8.0, 531.0
+[AP95] n(tp), n(fp): 0.0, 539.0

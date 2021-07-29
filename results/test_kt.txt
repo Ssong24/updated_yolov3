@@ -1,0 +1,8 @@
+# kitti fisheye 
+python test.py  --batch-size 1 --img-size 512 --save-json --n-classes 7 --gt-json ..\DL-DATASET\KITTI\data_object_label_2\training\label_2_coco_7c_all\kitti_fe_test_gt.json --save-result --data-format kitti --data .\input\dataset\kitti\kitti_fe_7c.data --projection fe/ --weights .\results\kitti\fe\kitti_fe_SPP_darknet_bs24_lr19e-4_e300_img512_hgain_wm\weights\best.pt --cfg .\input\cfg\kitti\yolov3-spp-kitti_7c.cfg
+
+# kitti equi
+python test.py  --batch-size 1 --img-size 512 --save-json --n-classes 7 --gt-json ..\DL-DATASET\KITTI\data_object_label_2\training\label_2_coco_7c_all\kitti_equi_test_gt.json --save-result --data-format kitti --data .\input\dataset\kitti\kitti_equi_7c.data --projection equi/ --weights .\results\kitti\equi\kitti_equi_SPP_darknet_bs24_lr19e-4_e300_img512_hgain_wm\weights\best.pt --cfg .\input\cfg\kitti\yolov3-spp-kitti_7c.cfg
+
+# kitti songCylin
+python test.py  --batch-size 1 --img-size 512 --save-json --n-classes 7 --gt-json ..\DL-DATASET\KITTI\data_object_label_2\training\label_2_coco_7c_all\kitti_songCylin_test_gt.json --save-result --data-format kitti --data .\input\dataset\kitti\kitti_songCylin_7c.data --projection songCylin/ --weights .\results\kitti\songCylin\kitti_songCylin_SPP_darknet_bs24_lr19e-4_e350_img512_hgain_wm\weights\best.pt --cfg .\input\cfg\kitti\yolov3-spp-kitti_7c.cfg
